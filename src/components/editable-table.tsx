@@ -62,7 +62,7 @@ export function EditableTable<T extends Record<string, unknown>>({
           </thead>
           <tbody>
             {rows.map((row, ri) => (
-              <tr key={String(row.id ?? ri)} className="group border-b last:border-b-0 hover:bg-accent/[0.04]">
+              <tr key={ri} className="group border-b last:border-b-0 hover:bg-accent/[0.04]">
                 <td className="w-10 border-r bg-muted/20 px-2 py-1.5 text-center text-[11px] text-muted-foreground">
                   {ri + 1}
                 </td>
