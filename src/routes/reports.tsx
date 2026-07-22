@@ -27,7 +27,7 @@ const reports = [
   { name: "Rapport fiscal RDC", period: "S1 2026", status: "Prêt", size: "324 KB" },
 ];
 
-export default function _() {}
+
 
 function ReportsPage() {
   return (
