@@ -12,7 +12,7 @@ export type Column<T> = {
   readOnly?: boolean;
 };
 
-export function EditableTable<T extends { id?: string | number }>({
+export function EditableTable<T extends Record<string, unknown>>({
   columns,
   data,
   canEdit = true,
