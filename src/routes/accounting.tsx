@@ -55,6 +55,21 @@ function AccountingPage() {
     { key: "status", label: "Statut", width: "110px" },
   ];
 
+  const txCols: Column<Transaction>[] = [
+    { key: "date", label: "Date", width: "110px", editable: true },
+    { key: "invoice", label: "Facture n°", width: "150px", editable: true },
+    { key: "type", label: "Type", width: "100px", editable: true },
+    { key: "category", label: "Catégorie", width: "170px", editable: true },
+    { key: "net", label: "Net", align: "right", width: "110px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+    { key: "salesTax", label: "TVA", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+    { key: "otherFees", label: "Autres frais", align: "right", width: "110px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+    { key: "total", label: "Total", align: "right", width: "115px", type: "number", format: (v) => fmtUsdPrecise(v as number) },
+    { key: "description", label: "Description", editable: true },
+    { key: "notes", label: "Notes", editable: true },
+    { key: "quarter", label: "Trim.", width: "70px" },
+  ];
+
+
   return (
     <div className="space-y-6">
       <PageHeader
