@@ -8,8 +8,63 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { products, stockMovements } from "@/lib/mock-data";
+import {
+  materials,
+  priceCalculator,
+  priceList,
+  type Material,
+  type PriceCalcRow,
+  type PriceListRow,
+  type InventoryStatus,
+} from "@/lib/template-data";
 import { fmtUsdPrecise, fmtNum } from "@/lib/format";
 import { useRole } from "@/lib/role-context";
+
+const statusColor: Record<InventoryStatus, string> = {
+  "IN STOCK": "text-success",
+  "REORDER SOON": "text-accent",
+  "TIME TO REORDER": "text-primary",
+  "OUT OF STOCK": "text-destructive",
+};
+
+const materialCols: Column<Material>[] = [
+  { key: "ref", label: "Réf. interne", width: "130px" },
+  { key: "material", label: "Matière", editable: true },
+  { key: "price", label: "Prix lot", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "units", label: "Nb unités", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtNum(v as number) },
+  { key: "unit", label: "Unité", width: "80px", editable: true },
+  { key: "unitPrice", label: "Prix unitaire", align: "right", width: "115px", format: (v) => `$${(v as number).toFixed(4)}` },
+  { key: "inventory", label: "Stock", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtNum(v as number) },
+  { key: "lastChange", label: "Dernier mvt", width: "115px" },
+  { key: "minInventory", label: "Stock min.", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtNum(v as number) },
+  { key: "status", label: "Statut", width: "150px" },
+  { key: "value", label: "Valeur", align: "right", width: "110px", format: (v) => fmtUsdPrecise(v as number) },
+  { key: "notes", label: "Notes", editable: true },
+];
+
+const calcCols: Column<PriceCalcRow>[] = [
+  { key: "product", label: "Produit" },
+  { key: "materialCost", label: "Coût matière", align: "right", width: "115px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "laborCost", label: "Main d'œuvre", align: "right", width: "115px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "overhead", label: "Frais gén.", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "packaging", label: "Emballage", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "totalCost", label: "Coût total", align: "right", width: "110px", format: (v) => fmtUsdPrecise(v as number) },
+  { key: "marginPct", label: "Marge %", align: "right", width: "90px", type: "number", editable: true, format: (v) => `${v as number}%` },
+  { key: "wholesale", label: "Prix gros", align: "right", width: "105px", format: (v) => fmtUsdPrecise(v as number) },
+  { key: "retail", label: "Prix détail", align: "right", width: "105px", format: (v) => fmtUsdPrecise(v as number) },
+  { key: "retailWithTax", label: "TTC", align: "right", width: "100px", format: (v) => fmtUsdPrecise(v as number) },
+];
+
+const priceListCols: Column<PriceListRow>[] = [
+  { key: "sku", label: "SKU", width: "130px" },
+  { key: "product", label: "Produit" },
+  { key: "category", label: "Catégorie", width: "130px" },
+  { key: "unitCost", label: "Coût", align: "right", width: "95px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "wholesale", label: "Prix gros", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "retail", label: "Prix détail", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+  { key: "marginPct", label: "Marge %", align: "right", width: "90px", format: (v) => `${(v as number).toFixed(1)}%` },
+  { key: "channel", label: "Canal", width: "170px" },
+];
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({
