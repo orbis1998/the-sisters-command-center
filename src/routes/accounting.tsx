@@ -7,7 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { revenues, expenses } from "@/lib/mock-data";
-import { fmtUsdPrecise } from "@/lib/format";
+import {
+  transactions,
+  monthSummary,
+  quarterSummary,
+  annualSummary,
+  taxesSummary,
+  bookkeepingSetup,
+  type Transaction,
+} from "@/lib/template-data";
+import { fmtUsd, fmtUsdPrecise } from "@/lib/format";
 import { useRole } from "@/lib/role-context";
 
 export const Route = createFileRoute("/accounting")({
