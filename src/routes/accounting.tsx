@@ -7,7 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { revenues, expenses } from "@/lib/mock-data";
-import { fmtUsdPrecise } from "@/lib/format";
+import {
+  transactions,
+  monthSummary,
+  quarterSummary,
+  annualSummary,
+  taxesSummary,
+  bookkeepingSetup,
+  type Transaction,
+} from "@/lib/template-data";
+import { fmtUsd, fmtUsdPrecise } from "@/lib/format";
 import { useRole } from "@/lib/role-context";
 
 export const Route = createFileRoute("/accounting")({
@@ -46,6 +55,21 @@ function AccountingPage() {
     { key: "status", label: "Statut", width: "110px" },
   ];
 
+  const txCols: Column<Transaction>[] = [
+    { key: "date", label: "Date", width: "110px", editable: true },
+    { key: "invoice", label: "Facture n°", width: "150px", editable: true },
+    { key: "type", label: "Type", width: "100px", editable: true },
+    { key: "category", label: "Catégorie", width: "170px", editable: true },
+    { key: "net", label: "Net", align: "right", width: "110px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+    { key: "salesTax", label: "TVA", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+    { key: "otherFees", label: "Autres frais", align: "right", width: "110px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
+    { key: "total", label: "Total", align: "right", width: "115px", type: "number", format: (v) => fmtUsdPrecise(v as number) },
+    { key: "description", label: "Description", editable: true },
+    { key: "notes", label: "Notes", editable: true },
+    { key: "quarter", label: "Trim.", width: "70px" },
+  ];
+
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -69,13 +93,116 @@ function AccountingPage() {
         <MiniStat label="Solde net" value="+$1,184" hint="Marge 35.2%" tone="accent" />
       </div>
 
-      <Tabs defaultValue="revenues" className="space-y-4">
+      <Tabs defaultValue="transactions" className="space-y-4">
         <TabsList className="bg-muted">
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="revenues">Revenus</TabsTrigger>
           <TabsTrigger value="expenses">Dépenses</TabsTrigger>
           <TabsTrigger value="purchases">Achats</TabsTrigger>
+          <TabsTrigger value="periods">Périodes</TabsTrigger>
+          <TabsTrigger value="taxes">Taxes</TabsTrigger>
           <TabsTrigger value="reconciliation">Rapprochement</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="transactions">
+          <SectionCard
+            title="Journal des transactions"
+            description="Structure du modèle Ultimate Bookkeeping · Net + TVA + frais = Total"
+          >
+            <EditableTable columns={txCols} data={transactions} canEdit />
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="periods">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard title="Vue mensuelle" description="Revenus, dépenses, profit vs objectif">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="border-b px-3 py-2 text-left">Mois</th>
+                      <th className="border-b px-3 py-2 text-right">Revenus</th>
+                      <th className="border-b px-3 py-2 text-right">Dépenses</th>
+                      <th className="border-b px-3 py-2 text-right">Profit</th>
+                      <th className="border-b px-3 py-2 text-right">Objectif</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthSummary.map((m) => (
+                      <tr key={m.month} className="border-b last:border-b-0">
+                        <td className="px-3 py-2 font-medium">{m.month}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(m.income)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtUsd(m.expenses)}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums font-medium ${m.profit >= m.goal ? "text-success" : "text-destructive"}`}>{fmtUsd(m.profit)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtUsd(m.goal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+
+            <div className="space-y-4">
+              <SectionCard title="Vue trimestrielle">
+                <div className="space-y-2">
+                  {quarterSummary.map((q) => (
+                    <div key={q.quarter} className="flex items-center justify-between rounded-lg border bg-muted/20 px-4 py-3">
+                      <span className="text-sm font-medium">{q.quarter}</span>
+                      <div className="flex items-center gap-5 text-sm tabular-nums">
+                        <span className="text-muted-foreground">{fmtUsd(q.income)}</span>
+                        <span className="font-semibold text-success">{fmtUsd(q.profit)}</span>
+                        <Badge variant="secondary">{q.margin.toFixed(1)}%</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+              <SectionCard title="Vue annuelle · 5 ans">
+                <div className="space-y-2">
+                  {annualSummary.map((a) => (
+                    <div key={a.year} className="flex items-center justify-between rounded-lg border bg-muted/20 px-4 py-3">
+                      <span className="text-sm font-medium">{a.year}</span>
+                      <div className="flex items-center gap-5 text-sm tabular-nums">
+                        <span className="text-muted-foreground">{fmtUsd(a.income)}</span>
+                        <span className="font-semibold text-success">{fmtUsd(a.profit)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="taxes">
+          <SectionCard title="TVA & taxes" description={`Taux appliqué : ${bookkeepingSetup.salesTaxPct}% · devise ${bookkeepingSetup.currency}`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="border-b px-3 py-2 text-left">Période</th>
+                    <th className="border-b px-3 py-2 text-right">TVA collectée</th>
+                    <th className="border-b px-3 py-2 text-right">TVA déductible</th>
+                    <th className="border-b px-3 py-2 text-right">Net à payer</th>
+                    <th className="border-b px-3 py-2 text-left">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {taxesSummary.map((t) => (
+                    <tr key={t.period} className="border-b last:border-b-0">
+                      <td className="px-3 py-2 font-medium">{t.period}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(t.taxCollected)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtUsd(t.taxPaid)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtUsd(t.net)}</td>
+                      <td className="px-3 py-2"><Badge variant="outline">{t.status}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+        </TabsContent>
+
 
         <TabsContent value="revenues">
           <SectionCard title="Journal des revenus" description="Cliquez deux fois pour éditer une cellule">

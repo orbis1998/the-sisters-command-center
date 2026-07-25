@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   BookOpenText,
   Boxes,
+  ShoppingCart,
   FileBarChart,
   Sparkles,
   Bell,
@@ -36,6 +37,7 @@ const groups = [
     label: "Opérations",
     items: [
       { title: "Comptabilité", url: "/accounting", icon: BookOpenText, ceoOnly: false },
+      { title: "Commandes", url: "/orders", icon: ShoppingCart, ceoOnly: false },
       { title: "Inventaire", url: "/inventory", icon: Boxes, ceoOnly: false },
       { title: "Documents", url: "/documents", icon: FolderOpen, ceoOnly: false },
     ],

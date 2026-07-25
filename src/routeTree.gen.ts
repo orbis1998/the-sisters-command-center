@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
@@ -27,6 +28,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersRoute = OrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryRoute = InventoryRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AnalyticsRoute
   '/documents': typeof DocumentsRoute
   '/inventory': typeof InventoryRoute
+  '/orders': typeof OrdersRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AnalyticsRoute
   '/documents': typeof DocumentsRoute
   '/inventory': typeof InventoryRoute
+  '/orders': typeof OrdersRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/analytics': typeof AnalyticsRoute
   '/documents': typeof DocumentsRoute
   '/inventory': typeof InventoryRoute
+  '/orders': typeof OrdersRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/documents'
     | '/inventory'
+    | '/orders'
     | '/reports'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/documents'
     | '/inventory'
+    | '/orders'
     | '/reports'
     | '/settings'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/documents'
     | '/inventory'
+    | '/orders'
     | '/reports'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   AnalyticsRoute: typeof AnalyticsRoute
   DocumentsRoute: typeof DocumentsRoute
   InventoryRoute: typeof InventoryRoute
+  OrdersRoute: typeof OrdersRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
@@ -223,19 +243,10 @@ const rootRouteChildren: RootRouteChildren = {
   AnalyticsRoute: AnalyticsRoute,
   DocumentsRoute: DocumentsRoute,
   InventoryRoute: InventoryRoute,
+  OrdersRoute: OrdersRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
