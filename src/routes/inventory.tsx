@@ -64,9 +64,44 @@ function InventoryPage() {
       <Tabs defaultValue="catalog" className="space-y-4">
         <TabsList className="bg-muted">
           <TabsTrigger value="catalog">Catalogue produits</TabsTrigger>
+          <TabsTrigger value="materials">Matières & inventaire</TabsTrigger>
+          <TabsTrigger value="calculator">Calculateur de prix</TabsTrigger>
+          <TabsTrigger value="pricelist">Liste de prix</TabsTrigger>
           <TabsTrigger value="movements">Mouvements</TabsTrigger>
           <TabsTrigger value="adjustments">Ajustements</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="materials">
+          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {(["IN STOCK", "REORDER SOON", "TIME TO REORDER", "OUT OF STOCK"] as const).map((s) => (
+              <div key={s} className="card-elevated p-4">
+                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">{s}</div>
+                <div className={`mt-1 font-display text-2xl font-semibold ${statusColor[s]}`}>
+                  {materials.filter((m) => m.status === s).length}
+                </div>
+              </div>
+            ))}
+          </div>
+          <SectionCard
+            title="Inventaire matières premières"
+            description={`Structure du modèle Pricing Calculator + Inventory Tracker · valeur totale ${fmtUsdPrecise(materials.reduce((s, m) => s + m.value, 0))}`}
+          >
+            <EditableTable columns={materialCols} data={materials} canEdit={isCEO} />
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="calculator">
+          <SectionCard title="Calculateur de prix" description="Coût matière + main d'œuvre + frais généraux + emballage → prix gros / détail (TVA 16%)">
+            <EditableTable columns={calcCols} data={priceCalculator} canEdit={isCEO} />
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="pricelist">
+          <SectionCard title="Liste de prix" description="Grille tarifaire officielle par canal de distribution">
+            <EditableTable columns={priceListCols} data={priceList} canEdit={isCEO} />
+          </SectionCard>
+        </TabsContent>
+
 
         <TabsContent value="catalog">
           <SectionCard
