@@ -1,222 +1,239 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, PackageCheck, PackageX, TrendingDown, Boxes } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { Boxes, PackageCheck, PackageX, TrendingDown } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
-import { EditableTable, type Column } from "@/components/editable-table";
 import { KpiCard } from "@/components/kpi-card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { products, stockMovements } from "@/lib/mock-data";
-import {
-  materials,
-  priceCalculator,
-  priceList,
-  type Material,
-  type PriceCalcRow,
-  type PriceListRow,
-  type InventoryStatus,
-} from "@/lib/template-data";
-import { fmtUsdPrecise, fmtNum } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useRole } from "@/lib/role-context";
-
-const statusColor: Record<InventoryStatus, string> = {
-  "IN STOCK": "text-success",
-  "REORDER SOON": "text-accent",
-  "TIME TO REORDER": "text-primary",
-  "OUT OF STOCK": "text-destructive",
-};
-
-const materialCols: Column<Material>[] = [
-  { key: "ref", label: "Réf. interne", width: "130px" },
-  { key: "material", label: "Matière", editable: true },
-  { key: "price", label: "Prix lot", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "units", label: "Nb unités", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtNum(v as number) },
-  { key: "unit", label: "Unité", width: "80px", editable: true },
-  { key: "unitPrice", label: "Prix unitaire", align: "right", width: "115px", format: (v) => `$${(v as number).toFixed(4)}` },
-  { key: "inventory", label: "Stock", align: "right", width: "100px", type: "number", editable: true, format: (v) => fmtNum(v as number) },
-  { key: "lastChange", label: "Dernier mvt", width: "115px" },
-  { key: "minInventory", label: "Stock min.", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtNum(v as number) },
-  { key: "status", label: "Statut", width: "150px" },
-  { key: "value", label: "Valeur", align: "right", width: "110px", format: (v) => fmtUsdPrecise(v as number) },
-  { key: "notes", label: "Notes", editable: true },
-];
-
-const calcCols: Column<PriceCalcRow>[] = [
-  { key: "product", label: "Produit" },
-  { key: "materialCost", label: "Coût matière", align: "right", width: "115px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "laborCost", label: "Main d'œuvre", align: "right", width: "115px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "overhead", label: "Frais gén.", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "packaging", label: "Emballage", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "totalCost", label: "Coût total", align: "right", width: "110px", format: (v) => fmtUsdPrecise(v as number) },
-  { key: "marginPct", label: "Marge %", align: "right", width: "90px", type: "number", editable: true, format: (v) => `${v as number}%` },
-  { key: "wholesale", label: "Prix gros", align: "right", width: "105px", format: (v) => fmtUsdPrecise(v as number) },
-  { key: "retail", label: "Prix détail", align: "right", width: "105px", format: (v) => fmtUsdPrecise(v as number) },
-  { key: "retailWithTax", label: "TTC", align: "right", width: "100px", format: (v) => fmtUsdPrecise(v as number) },
-];
-
-const priceListCols: Column<PriceListRow>[] = [
-  { key: "sku", label: "SKU", width: "130px" },
-  { key: "product", label: "Produit" },
-  { key: "category", label: "Catégorie", width: "130px" },
-  { key: "unitCost", label: "Coût", align: "right", width: "95px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "wholesale", label: "Prix gros", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "retail", label: "Prix détail", align: "right", width: "105px", type: "number", editable: true, format: (v) => fmtUsdPrecise(v as number) },
-  { key: "marginPct", label: "Marge %", align: "right", width: "90px", format: (v) => `${(v as number).toFixed(1)}%` },
-  { key: "channel", label: "Canal", width: "170px" },
-];
+import { supabase } from "@/lib/supabase-client";
+import { fmtUsd, fmtNum } from "@/lib/format";
+import { managerInventoryItems, stockStatus } from "@/lib/erp-constants";
 
 export const Route = createFileRoute("/inventory")({
-  head: () => ({
-    meta: [
-      { title: "Inventaire · The Sisters Business OS" },
-      { name: "description", content: "Gestion des stocks, mouvements, valorisation et ajustements d'inventaire." },
-    ],
-  }),
   component: InventoryPage,
 });
 
+type ErpProduct = {
+  id: string;
+  sku: string;
+  name: string;
+  category: string | null;
+  unit: string | null;
+  unit_purchase_price: number;
+  selling_price: number;
+  global_qty: number;
+  min_stock: number;
+  last_checked: string | null;
+  notes: string | null;
+};
+
 function InventoryPage() {
   const { isCEO } = useRole();
-  const totalValue = products.reduce((s, p) => s + p.stock * p.cost, 0);
-  const totalUnits = products.reduce((s, p) => s + p.stock, 0);
-  const low = products.filter((p) => p.stock < p.reorder).length;
+  const [saving, setSaving] = useState(false);
+  const [products, setProducts] = useState<ErpProduct[]>([]);
+  const [selectedName, setSelectedName] = useState("");
 
-  const productCols: Column<typeof products[number]>[] = [
-    { key: "sku", label: "SKU", width: "130px" },
-    { key: "name", label: "Produit", editable: true },
-    { key: "category", label: "Catégorie", width: "140px", editable: true },
-    { key: "dept", label: "Département", width: "160px" },
-    { key: "stock", label: "Stock", align: "right", width: "90px", type: "number", editable: isCEO, format: (v) => fmtNum(v as number) },
-    { key: "reorder", label: "Seuil", align: "right", width: "80px", type: "number", editable: isCEO, format: (v) => fmtNum(v as number) },
-    { key: "cost", label: "Coût", align: "right", width: "100px", type: "number", editable: isCEO, format: (v) => fmtUsdPrecise(v as number) },
-    { key: "price", label: "Prix", align: "right", width: "100px", type: "number", editable: isCEO, format: (v) => fmtUsdPrecise(v as number) },
-  ];
+  const loadProducts = async () => {
+    const { data, error } = await supabase
+      .from("erp_products")
+      .select("id, sku, name, category, unit, unit_purchase_price, selling_price, global_qty, min_stock, last_checked, notes")
+      .order("name");
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setProducts((data || []) as ErpProduct[]);
+  };
+
+  useEffect(() => {
+    if (isCEO) void loadProducts();
+  }, [isCEO]);
+
+  const low = products.filter((p) => Number(p.global_qty) > 0 && Number(p.global_qty) <= Number(p.min_stock || 0)).length;
+  const out = products.filter((p) => Number(p.global_qty) <= 0).length;
+
+  const submitProduct = (e: FormEvent) => {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const fd = new FormData(form);
+    const name = String(fd.get("name") || "").trim();
+    const sku = String(fd.get("sku") || "").trim();
+    const unit = String(fd.get("unit") || "unit").trim();
+    const purchase = Number(fd.get("purchase_price") || 0);
+    const selling = Number(fd.get("selling_price") || 0);
+    const qty = Number(fd.get("global_qty") || 0);
+    const minStock = Number(fd.get("min_stock") || 0);
+    const notes = String(fd.get("notes") || "").trim();
+
+    if (!name || !sku) {
+      toast.error("Nom et SKU requis.");
+      return;
+    }
+
+    setSaving(true);
+    void (async () => {
+      const { error } = await supabase.from("erp_products").upsert(
+        {
+          sku,
+          name,
+          unit,
+          unit_purchase_price: purchase,
+          selling_price: selling,
+          global_qty: qty,
+          min_stock: minStock,
+          last_checked: new Date().toISOString().slice(0, 10),
+          notes: notes || null,
+        },
+        { onConflict: "sku" },
+      );
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Produit enregistré");
+        form.reset();
+        setSelectedName("");
+        await loadProducts();
+      }
+      setSaving(false);
+    })();
+  };
+
+  const onPickName = (name: string) => {
+    setSelectedName(name);
+    const preset = managerInventoryItems.find((i) => i.label === name);
+    const existing = products.find((p) => p.name === name);
+    const skuInput = document.getElementById("sku") as HTMLInputElement | null;
+    const unitInput = document.getElementById("unit") as HTMLInputElement | null;
+    const purchaseInput = document.getElementById("purchase_price") as HTMLInputElement | null;
+    const sellingInput = document.getElementById("selling_price") as HTMLInputElement | null;
+    const qtyInput = document.getElementById("global_qty") as HTMLInputElement | null;
+    const minInput = document.getElementById("min_stock") as HTMLInputElement | null;
+
+    if (skuInput) skuInput.value = existing?.sku || (preset ? `TSA-${preset.value.toUpperCase()}` : "");
+    if (unitInput) unitInput.value = existing?.unit || preset?.unit || "unit";
+    if (purchaseInput) purchaseInput.value = existing ? String(existing.unit_purchase_price) : "";
+    if (sellingInput) sellingInput.value = existing ? String(existing.selling_price) : "";
+    if (qtyInput) qtyInput.value = existing ? String(existing.global_qty) : "0";
+    if (minInput) minInput.value = existing ? String(existing.min_stock) : "10";
+  };
+
+  if (!isCEO) {
+    return <div className="p-8 text-center">Accès réservé à l'administration.</div>;
+  }
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Opérations"
-        title="Gestion d'inventaire"
-        description="Valorisation, mouvements et ajustements de stock en temps réel."
-        actions={
-          <>
-            <Button variant="outline" size="sm">Import CSV</Button>
-            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />Mouvement stock
-            </Button>
-          </>
-        }
-      />
+      <PageHeader title="Stock global" />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Valeur stock" value={fmtUsdPrecise(totalValue)} icon={Boxes} delta={-2.1} tone="gold" />
-        <KpiCard label="Unités en stock" value={fmtNum(totalUnits)} icon={PackageCheck} delta={6.8} />
-        <KpiCard label="Sous seuil" value={String(low)} icon={TrendingDown} hint="produits à réapprovisionner" />
-        <KpiCard label="Ruptures 30j" value="0" icon={PackageX} hint="excellence opérationnelle" />
+        <KpiCard label="Stock total (qté)" value={fmtNum(products.reduce((s, p) => s + Number(p.global_qty || 0), 0))} icon={Boxes} tone="gold" />
+        <KpiCard label="Produits" value={fmtNum(products.length)} icon={PackageCheck} />
+        <KpiCard label="À réapprovisionner" value={fmtNum(low)} icon={TrendingDown} />
+        <KpiCard label="Ruptures" value={fmtNum(out)} icon={PackageX} />
       </div>
 
-      <Tabs defaultValue="catalog" className="space-y-4">
-        <TabsList className="bg-muted">
-          <TabsTrigger value="catalog">Catalogue produits</TabsTrigger>
-          <TabsTrigger value="materials">Matières & inventaire</TabsTrigger>
-          <TabsTrigger value="calculator">Calculateur de prix</TabsTrigger>
-          <TabsTrigger value="pricelist">Liste de prix</TabsTrigger>
-          <TabsTrigger value="movements">Mouvements</TabsTrigger>
-          <TabsTrigger value="adjustments">Ajustements</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="materials">
-          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {(["IN STOCK", "REORDER SOON", "TIME TO REORDER", "OUT OF STOCK"] as const).map((s) => (
-              <div key={s} className="card-elevated p-4">
-                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">{s}</div>
-                <div className={`mt-1 font-display text-2xl font-semibold ${statusColor[s]}`}>
-                  {materials.filter((m) => m.status === s).length}
-                </div>
-              </div>
-            ))}
+      <SectionCard title="Ajouter / mettre à jour un produit">
+        <form className="grid gap-3 md:grid-cols-8" onSubmit={submitProduct}>
+          <div className="md:col-span-2 space-y-1">
+            <Label htmlFor="name">Produit</Label>
+            <select
+              id="name"
+              name="name"
+              value={selectedName}
+              onChange={(e) => onPickName(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              required
+            >
+              <option value="">Choisir</option>
+              {managerInventoryItems.map((item) => (
+                <option key={item.value} value={item.label}>{item.label}</option>
+              ))}
+            </select>
           </div>
-          <SectionCard
-            title="Inventaire matières premières"
-            description={`Structure du modèle Pricing Calculator + Inventory Tracker · valeur totale ${fmtUsdPrecise(materials.reduce((s, m) => s + m.value, 0))}`}
-          >
-            <EditableTable columns={materialCols} data={materials} canEdit={isCEO} />
-          </SectionCard>
-        </TabsContent>
+          <div className="space-y-1">
+            <Label htmlFor="sku">SKU</Label>
+            <Input id="sku" name="sku" required />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="unit">Unité</Label>
+            <Input id="unit" name="unit" defaultValue="unit" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="purchase_price">Prix achat</Label>
+            <Input id="purchase_price" name="purchase_price" type="number" step="0.01" min="0" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="selling_price">Prix vente</Label>
+            <Input id="selling_price" name="selling_price" type="number" step="0.01" min="0" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="global_qty">Stock</Label>
+            <Input id="global_qty" name="global_qty" type="number" min="0" defaultValue={0} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="min_stock">Min.</Label>
+            <Input id="min_stock" name="min_stock" type="number" min="0" defaultValue={10} />
+          </div>
+          <div className="md:col-span-6 space-y-1">
+            <Label htmlFor="notes">Notes</Label>
+            <Input id="notes" name="notes" />
+          </div>
+          <div className="md:col-span-2 flex items-end">
+            <Button type="submit" className="w-full" disabled={saving}>
+              {saving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
 
-        <TabsContent value="calculator">
-          <SectionCard title="Calculateur de prix" description="Coût matière + main d'œuvre + frais généraux + emballage → prix gros / détail (TVA 16%)">
-            <EditableTable columns={calcCols} data={priceCalculator} canEdit={isCEO} />
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="pricelist">
-          <SectionCard title="Liste de prix" description="Grille tarifaire officielle par canal de distribution">
-            <EditableTable columns={priceListCols} data={priceList} canEdit={isCEO} />
-          </SectionCard>
-        </TabsContent>
-
-
-        <TabsContent value="catalog">
-          <SectionCard
-            title="Catalogue & valorisation"
-            description={isCEO ? "Éditez coûts, prix et seuils · double-clic sur une cellule" : "Lecture seule · l'édition des prix est réservée au CEO"}
-          >
-            <EditableTable columns={productCols} data={products} canEdit={isCEO} />
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="movements">
-          <SectionCard title="Journal des mouvements" description="Entrées, sorties et ajustements">
-            <div className="card-elevated overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="border-b px-3 py-2 text-left">Réf.</th>
-                    <th className="border-b px-3 py-2 text-left">Date</th>
-                    <th className="border-b px-3 py-2 text-left">SKU</th>
-                    <th className="border-b px-3 py-2 text-left">Type</th>
-                    <th className="border-b px-3 py-2 text-right">Quantité</th>
-                    <th className="border-b px-3 py-2 text-left">Motif</th>
-                    <th className="border-b px-3 py-2 text-left">Utilisateur</th>
+      <SectionCard title="Inventaire">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                <th className="py-2 pr-3">Produit</th>
+                <th className="py-2 pr-3">SKU</th>
+                <th className="py-2 pr-3">Unité</th>
+                <th className="py-2 pr-3">Prix achat</th>
+                <th className="py-2 pr-3">Prix vente</th>
+                <th className="py-2 pr-3">Stock</th>
+                <th className="py-2 pr-3">Min.</th>
+                <th className="py-2 pr-3">Statut</th>
+                <th className="py-2 pr-3">Valeur</th>
+                <th className="py-2">Dernier contrôle</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-10 text-center text-muted-foreground">Aucun produit.</td>
+                </tr>
+              ) : (
+                products.map((p) => (
+                  <tr key={p.id} className="border-b border-border/60">
+                    <td className="py-2.5 pr-3 font-medium">{p.name}</td>
+                    <td className="py-2.5 pr-3 font-mono text-xs">{p.sku}</td>
+                    <td className="py-2.5 pr-3">{p.unit || "unit"}</td>
+                    <td className="py-2.5 pr-3">{fmtUsd(Number(p.unit_purchase_price))}</td>
+                    <td className="py-2.5 pr-3">{fmtUsd(Number(p.selling_price))}</td>
+                    <td className="py-2.5 pr-3">{fmtNum(Number(p.global_qty))}</td>
+                    <td className="py-2.5 pr-3">{fmtNum(Number(p.min_stock))}</td>
+                    <td className="py-2.5 pr-3">{stockStatus(Number(p.global_qty), Number(p.min_stock))}</td>
+                    <td className="py-2.5 pr-3">{fmtUsd(Number(p.global_qty) * Number(p.unit_purchase_price))}</td>
+                    <td className="py-2.5">{p.last_checked || "—"}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {stockMovements.map((m) => (
-                    <tr key={m.id} className="border-b last:border-b-0 hover:bg-accent/[0.04]">
-                      <td className="px-3 py-2 font-mono text-xs">{m.id}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{m.date}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{m.sku}</td>
-                      <td className="px-3 py-2">
-                        <Badge variant={m.type === "Entrée" ? "default" : m.type === "Sortie" ? "secondary" : "outline"} className={m.type === "Entrée" ? "bg-success/15 text-success hover:bg-success/20" : ""}>
-                          {m.type}
-                        </Badge>
-                      </td>
-                      <td className={`px-3 py-2 text-right tabular-nums font-medium ${m.qty > 0 ? "text-success" : "text-destructive"}`}>
-                        {m.qty > 0 ? "+" : ""}{m.qty}
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">{m.reason}</td>
-                      <td className="px-3 py-2">{m.user}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        <TabsContent value="adjustments">
-          <SectionCard title="Ajustements d'inventaire" description={isCEO ? "Ajustements réservés au CEO" : "Contactez le CEO pour un ajustement"}>
-            <div className="rounded-lg border-2 border-dashed p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                {isCEO ? "Créez un ajustement d'inventaire (casse, inventaire physique, correction)." : "Vous n'avez pas les permissions pour créer un ajustement."}
-              </p>
-              {isCEO && <Button className="mt-4" size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" />Nouvel ajustement</Button>}
-            </div>
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
     </div>
   );
 }

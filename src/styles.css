@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", "Playfair Display", ui-serif, Georgia, serif;
+  --font-display: "Tenor Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -127,7 +127,7 @@
   }
   .font-display {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    letter-spacing: 0.02em;
   }
 }
 
@@ -140,4 +140,79 @@
 
 @utility gold-gradient {
   background: linear-gradient(135deg, oklch(0.82 0.14 82), oklch(0.68 0.14 68));
+}
+
+.login-shell {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.76 0.13 78 / 0.22), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, oklch(0.28 0.045 55 / 0.12), transparent 55%),
+    linear-gradient(180deg, oklch(0.985 0.005 80), oklch(0.96 0.015 78));
+}
+
+.login-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.login-glow-left {
+  top: 10%;
+  left: -10%;
+  width: 320px;
+  height: 320px;
+  background: oklch(0.76 0.13 78 / 0.25);
+}
+
+.login-glow-right {
+  bottom: 5%;
+  right: -5%;
+  width: 280px;
+  height: 280px;
+  background: oklch(0.28 0.045 55 / 0.15);
+}
+
+.login-card {
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid oklch(0.92 0.012 80 / 0.9);
+  background: oklch(1 0 0 / 0.82);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 1px 2px oklch(0.22 0.03 55 / 0.04),
+    0 24px 48px -24px oklch(0.22 0.03 55 / 0.18),
+    inset 0 1px 0 oklch(1 0 0 / 0.6);
+  padding: 2rem 1.75rem 1.75rem;
+}
+
+.login-input {
+  height: 2.75rem;
+  border-color: oklch(0.92 0.012 80);
+  background: oklch(0.985 0.005 80 / 0.7);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-input:focus-visible {
+  border-color: oklch(0.76 0.13 78 / 0.6);
+  box-shadow: 0 0 0 3px oklch(0.76 0.13 78 / 0.15);
+}
+
+.login-submit {
+  height: 2.75rem;
+  margin-top: 0.25rem;
+  background: linear-gradient(135deg, oklch(0.32 0.05 55), oklch(0.24 0.04 55));
+  color: oklch(0.97 0.02 85);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px oklch(0.22 0.03 55 / 0.25);
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, oklch(0.36 0.055 55), oklch(0.28 0.045 55));
+  box-shadow: 0 6px 20px oklch(0.22 0.03 55 / 0.3);
+  transform: translateY(-1px);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(0);
 }

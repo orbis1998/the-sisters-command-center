@@ -1,102 +1,76 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { FileDown, Calendar, Printer } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, FileBarChart } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { SectionCard } from "@/components/section-card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { monthlyFinancials, expenseBreakdown } from "@/lib/mock-data";
-import { fmtUsd } from "@/lib/format";
+import { useRole } from "@/lib/role-context";
+import { loadExecutiveDashboard } from "@/lib/executive-dashboard";
+import { fmtNum } from "@/lib/format";
 
 export const Route = createFileRoute("/reports")({
-  head: () => ({
-    meta: [
-      { title: "Rapports · The Sisters Business OS" },
-      { name: "description", content: "Rapports financiers, opérationnels et exécutifs exportables." },
-    ],
-  }),
   component: ReportsPage,
 });
 
-const reports = [
-  { name: "Compte de résultat", period: "Juillet 2026", status: "Prêt", size: "84 KB" },
-  { name: "Bilan comptable", period: "Q2 2026", status: "Prêt", size: "212 KB" },
-  { name: "Flux de trésorerie", period: "YTD 2026", status: "Prêt", size: "148 KB" },
-  { name: "Rapport ventes par département", period: "Juillet 2026", status: "Prêt", size: "96 KB" },
-  { name: "Analyse marges par produit", period: "Q2 2026", status: "En cours", size: "—" },
-  { name: "Rapport fiscal RDC", period: "S1 2026", status: "Prêt", size: "324 KB" },
-];
-
-
-
 function ReportsPage() {
+  const { isCEO } = useRole();
+  const [data, setData] = useState<Awaited<ReturnType<typeof loadExecutiveDashboard>> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      const result = await loadExecutiveDashboard();
+      if (mounted) {
+        setData(result);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (!isCEO) {
+    return <div className="p-8 text-center">Accès réservé à l'administration.</div>;
+  }
+
+  if (loading || !data) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Chargement des rapports...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Intelligence"
-        title="Rapports"
-        description="Générez et exportez vos rapports comptables, opérationnels et exécutifs."
-        actions={
-          <>
-            <Button variant="outline" size="sm"><Calendar className="mr-1.5 h-3.5 w-3.5" />Période</Button>
-            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <FileDown className="mr-1.5 h-3.5 w-3.5" />Nouveau rapport
-            </Button>
-          </>
-        }
-      />
+      <PageHeader title="Rapports" />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard title="Revenus mensuels" description="Année 2026">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyFinancials}>
-                <CartesianGrid stroke="oklch(0.92 0.01 80)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
-                <Tooltip formatter={(v: number) => fmtUsd(v)} contentStyle={{ borderRadius: 8, border: "1px solid oklch(0.9 0.01 80)", fontSize: 12 }} />
-                <Bar dataKey="revenue" fill="oklch(0.76 0.13 78)" radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Dépenses par catégorie" description="Année 2026">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={expenseBreakdown} layout="vertical">
-                <CartesianGrid stroke="oklch(0.92 0.01 80)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
-                <YAxis type="category" dataKey="category" tick={{ fontSize: 10 }} width={160} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => fmtUsd(v)} contentStyle={{ borderRadius: 8, border: "1px solid oklch(0.9 0.01 80)", fontSize: 12 }} />
-                <Bar dataKey="amount" fill="oklch(0.42 0.06 55)" radius={[0,4,4,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </SectionCard>
-      </div>
-
-      <SectionCard title="Bibliothèque de rapports" description="Rapports générés récemment">
-        <div className="divide-y">
-          {reports.map((r) => (
-            <div key={r.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-3">
-              <div className="min-w-0">
-                <div className="truncate font-medium text-sm">{r.name}</div>
-                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span>{r.period}</span>
-                  <span>·</span>
-                  <span>{r.size}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={r.status === "Prêt" ? "outline" : "secondary"} className={r.status === "Prêt" ? "border-success/40 bg-success/10 text-success" : ""}>
-                  {r.status}
-                </Badge>
-                <Button variant="ghost" size="sm" disabled={r.status !== "Prêt"}><Printer className="h-3.5 w-3.5" /></Button>
-                <Button variant="outline" size="sm" disabled={r.status !== "Prêt"}><FileDown className="mr-1 h-3.5 w-3.5" />PDF</Button>
-              </div>
+      <SectionCard title={`Rapports récents · ${fmtNum(data.pendingReports)} en attente`}>
+        <div className="space-y-3">
+          {data.recentReports.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed p-12 text-center">
+              <FileBarChart className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
+              <p className="text-sm text-muted-foreground">Aucun rapport enregistré.</p>
             </div>
-          ))}
+          ) : (
+            data.recentReports.map((report) => (
+              <div key={report.id} className="flex items-start justify-between gap-4 rounded-lg border p-4">
+                <div>
+                  <div className="font-medium">{report.manager}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {report.location} · {report.weekStart} → {report.weekEnd}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">{fmtNum(report.productsSold)} produits vendus</div>
+                </div>
+                <Badge variant="outline">{report.status}</Badge>
+              </div>
+            ))
+          )}
         </div>
       </SectionCard>
     </div>
