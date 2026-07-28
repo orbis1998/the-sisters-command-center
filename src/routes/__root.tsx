@@ -17,6 +17,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { RoleProvider, useRole } from "@/lib/role-context";
+import { isSupabaseConfigured } from "@/lib/supabase-client";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -97,6 +98,21 @@ function AuthWrapper({ children }: { children: ReactNode }) {
   const { role, isLoading } = useRole();
   const location = useLocation();
   const isLoginPage = location.pathname === "/login";
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="max-w-md rounded-lg border bg-card p-6 text-center">
+          <h1 className="font-display text-lg font-semibold">Configuration manquante</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Ajoutez <code className="text-xs">VITE_SUPABASE_URL</code> et{" "}
+            <code className="text-xs">VITE_SUPABASE_PUBLISHABLE_KEY</code> dans les variables
+            d&apos;environnement Vercel, puis redéployez.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
