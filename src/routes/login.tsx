@@ -1,7 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase-client";
-import { fetchSiteLogoUrl } from "@/lib/site-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,13 +17,8 @@ function Login() {
   const [secret, setSecret] = useState("");
   const [showSecret, setShowSecret] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const router = useRouter();
   const { loginAsManager } = useRole();
-
-  useEffect(() => {
-    void fetchSiteLogoUrl().then(setLogoUrl);
-  }, []);
 
   const isEmailLike = (value: string) => value.includes("@");
 
@@ -77,22 +71,13 @@ function Login() {
 
       <div className="relative z-10 w-full max-w-[420px]">
         <div className="login-card">
-          <div className="flex justify-center pb-2 pt-1">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt="The Sisters Africa"
-                className="h-20 w-auto max-w-[280px] object-contain drop-shadow-sm md:h-24"
-              />
-            ) : (
-              <div className="flex h-16 w-40 items-center justify-center rounded-lg bg-muted/50">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            )}
-          </div>
-
           <div className="mb-6 text-center">
-            <h1 className="font-display text-2xl font-semibold tracking-wide text-foreground">Connexion</h1>
+            <div className="login-brand font-display text-xl font-semibold text-foreground md:text-2xl">
+              The sister Africa Business OS
+            </div>
+            <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+              Accès administration & point de vente
+            </div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">

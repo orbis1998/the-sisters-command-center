@@ -38,3 +38,6 @@ dist-ssr
 
 # Local Excel copies (reference only)
 Copie de *.xlsx
+
+# Vercel build output
+.vercel/

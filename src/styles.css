@@ -149,6 +149,20 @@
     linear-gradient(180deg, oklch(0.985 0.005 80), oklch(0.96 0.015 78));
 }
 
+.login-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(closest-side at 20% 15%, oklch(0.76 0.13 78 / 0.14), transparent 60%),
+    radial-gradient(closest-side at 85% 65%, oklch(0.28 0.045 55 / 0.12), transparent 60%),
+    linear-gradient(to right, oklch(0.22 0.03 55 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.22 0.03 55 / 0.06) 1px, transparent 1px);
+  background-size: auto, auto, 48px 48px, 48px 48px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .login-glow {
   position: absolute;
   border-radius: 9999px;
@@ -182,6 +196,10 @@
     0 24px 48px -24px oklch(0.22 0.03 55 / 0.18),
     inset 0 1px 0 oklch(1 0 0 / 0.6);
   padding: 2rem 1.75rem 1.75rem;
+}
+
+.login-brand {
+  letter-spacing: 0.04em;
 }
 
 .login-input {
