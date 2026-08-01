@@ -28,6 +28,7 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as RestocksRouteImport } from './routes/restocks'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StockFlowsRouteImport } from './routes/stock-flows'
+import { Route as StockWriteoffRouteImport } from './routes/stock-writeoff'
 import { Route as WeeklyReportRouteImport } from './routes/weekly-report'
 
 const IndexRoute = IndexRouteImport.update({
@@ -125,6 +126,11 @@ const StockFlowsRoute = StockFlowsRouteImport.update({
   path: '/stock-flows',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StockWriteoffRoute = StockWriteoffRouteImport.update({
+  id: '/stock-writeoff',
+  path: '/stock-writeoff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WeeklyReportRoute = WeeklyReportRouteImport.update({
   id: '/weekly-report',
   path: '/weekly-report',
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/restocks': typeof RestocksRoute
   '/settings': typeof SettingsRoute
   '/stock-flows': typeof StockFlowsRoute
+  '/stock-writeoff': typeof StockWriteoffRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesByTo {
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/restocks': typeof RestocksRoute
   '/settings': typeof SettingsRoute
   '/stock-flows': typeof StockFlowsRoute
+  '/stock-writeoff': typeof StockWriteoffRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesById {
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/restocks': typeof RestocksRoute
   '/settings': typeof SettingsRoute
   '/stock-flows': typeof StockFlowsRoute
+  '/stock-writeoff': typeof StockWriteoffRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRouteTypes {
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/restocks'
     | '/settings'
     | '/stock-flows'
+    | '/stock-writeoff'
     | '/weekly-report'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/restocks'
     | '/settings'
     | '/stock-flows'
+    | '/stock-writeoff'
     | '/weekly-report'
   id:
     | '__root__'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/restocks'
     | '/settings'
     | '/stock-flows'
+    | '/stock-writeoff'
     | '/weekly-report'
   fileRoutesById: FileRoutesById
 }
@@ -287,6 +299,7 @@ export interface RootRouteChildren {
   RestocksRoute: typeof RestocksRoute
   SettingsRoute: typeof SettingsRoute
   StockFlowsRoute: typeof StockFlowsRoute
+  StockWriteoffRoute: typeof StockWriteoffRoute
   WeeklyReportRoute: typeof WeeklyReportRoute
 }
 
@@ -425,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StockFlowsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stock-writeoff': {
+      id: '/stock-writeoff'
+      path: '/stock-writeoff'
+      fullPath: '/stock-writeoff'
+      preLoaderRoute: typeof StockWriteoffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/weekly-report': {
       id: '/weekly-report'
       path: '/weekly-report'
@@ -455,6 +475,7 @@ const rootRouteChildren: RootRouteChildren = {
   RestocksRoute: RestocksRoute,
   SettingsRoute: SettingsRoute,
   StockFlowsRoute: StockFlowsRoute,
+  StockWriteoffRoute: StockWriteoffRoute,
   WeeklyReportRoute: WeeklyReportRoute,
 }
 export const routeTree = rootRouteImport

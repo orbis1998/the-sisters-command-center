@@ -15,6 +15,7 @@ import {
   Store,
   CalendarRange,
   Warehouse,
+  PackageMinus,
 } from "lucide-react";
 import {
   Sidebar,
@@ -47,9 +48,7 @@ export function AppSidebar() {
   const ceoGroups = [
     {
       label: "Pilotage",
-      items: [
-        { title: "Tableau de bord", url: "/", icon: LayoutDashboard },
-      ],
+      items: [{ title: "Tableau de bord", url: "/", icon: LayoutDashboard }],
     },
     {
       label: "Stock & dépôt",
@@ -88,6 +87,7 @@ export function AppSidebar() {
         { title: "Approvisionnement", url: "/manager-investment", icon: ShoppingCart },
         { title: "Dépenses", url: "/manager-expenses", icon: Receipt },
         { title: "Rapport hebdomadaire", url: "/weekly-report", icon: ClipboardList },
+        { title: "Pertes / offert", url: "/stock-writeoff", icon: PackageMinus },
       ],
     },
   ];
@@ -97,9 +97,9 @@ export function AppSidebar() {
       label: "Dépôt",
       items: [
         { title: "Tableau de bord", url: "/", icon: LayoutDashboard },
-        { title: "Approvisionnement", url: "/depot-restocks", icon: Truck },
+        { title: "Entrée stock", url: "/depot-restocks", icon: Truck },
         { title: "Dépenses", url: "/depot-expenses", icon: Receipt },
-        { title: "Rapport hebdomadaire", url: "/weekly-report", icon: ClipboardList },
+        { title: "Pertes / abîmé", url: "/stock-writeoff", icon: PackageMinus },
         { title: "Stock global", url: "/inventory", icon: Warehouse },
       ],
     },
@@ -118,7 +118,7 @@ export function AppSidebar() {
             <div className="font-display text-sm font-semibold leading-tight text-sidebar-foreground">
               The Sisters
             </div>
-            <div className="text-[11px] text-sidebar-foreground/60 tracking-wide">ERP</div>
+            <div className="text-[11px] text-sidebar-foreground/60 tracking-wide">Business OS</div>
           </div>
         </Link>
       </SidebarHeader>

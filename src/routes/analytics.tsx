@@ -67,7 +67,7 @@ function AnalyticsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SectionCard title="Recettes dépôt">
+        <SectionCard title="CA dépôt (appro)">
           <div className="font-display text-3xl font-semibold">{fmtUsd(data.depotRevenue)}</div>
         </SectionCard>
         <SectionCard title="Ventes POS">
@@ -76,7 +76,7 @@ function AnalyticsPage() {
         <SectionCard title="Charges">
           <div className="font-display text-3xl font-semibold">{fmtUsd(data.operatingExpenses)}</div>
         </SectionCard>
-        <SectionCard title="Bénéfice">
+        <SectionCard title="Résultat net">
           <div className="font-display text-3xl font-semibold">{fmtUsd(data.profit)}</div>
         </SectionCard>
       </div>

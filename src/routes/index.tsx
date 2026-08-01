@@ -32,6 +32,7 @@ import { fmtUsd, fmtNum } from "@/lib/format";
 import { useRole } from "@/lib/role-context";
 import { loadExecutiveDashboard } from "@/lib/executive-dashboard";
 import { loadManagerDashboard } from "@/lib/manager-dashboard";
+import { loadDepotDashboard } from "@/lib/depot-dashboard";
 import { monthlyExpenseCategories } from "@/lib/erp-constants";
 import { supabase } from "@/lib/supabase-client";
 
@@ -63,44 +64,60 @@ function Dashboard() {
 
 function DepotDashboard() {
   const { depotAccount } = useRole();
-  const [stats, setStats] = useState({ totalQty: 0, low: 0, out: 0, products: 0, expenses: 0 });
+  const [data, setData] = useState<Awaited<ReturnType<typeof loadDepotDashboard>> | null>(null);
 
   useEffect(() => {
-    void (async () => {
-      const [{ data: products }, { data: expenses }] = await Promise.all([
-        supabase.from("erp_products").select("global_qty, min_stock"),
-        supabase.from("depot_expenses").select("amount").limit(500),
-      ]);
-      const rows = products || [];
-      setStats({
-        totalQty: rows.reduce((s, p) => s + Number(p.global_qty || 0), 0),
-        low: rows.filter((p) => Number(p.global_qty) > 0 && Number(p.global_qty) <= Number(p.min_stock || 0)).length,
-        out: rows.filter((p) => Number(p.global_qty) <= 0).length,
-        products: rows.length,
-        expenses: (expenses || []).reduce((s, e) => s + Number(e.amount || 0), 0),
-      });
-    })();
+    void loadDepotDashboard().then(setData);
   }, []);
+
+  if (!data) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Chargement...
+      </div>
+    );
+  }
+
+  const writeoffLabel = (type: string) =>
+    type === "gift" ? "Offert" : type === "damage" ? "Abîmé" : type === "loss" ? "Perte" : type;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={depotAccount?.name || "Dépôt"}
-        description="Saisie des approvisionnements, dépenses et rapport hebdomadaire"
+        description="Stock global · sorties vers POS · encaissements · pertes 0 $"
       />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Stock global" value={fmtNum(stats.totalQty)} icon={Package} tone="gold" />
-        <KpiCard label="Produits" value={fmtNum(stats.products)} icon={Store} />
-        <KpiCard label="Stock bas" value={fmtNum(stats.low)} icon={TrendingDown} />
-        <KpiCard label="Dépenses dépôt" value={fmtUsd(stats.expenses)} icon={Receipt} />
+
+      <div className="rounded-xl border border-accent/25 bg-gradient-to-br from-accent/10 via-background to-background p-5">
+        <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Flux dépôt</div>
+        <div className="mt-1 font-display text-lg font-semibold">Articles sortis ≠ ventes clients</div>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Les managers enregistrent les achats (CA dépôt). Ici vous suivez stock restant, volumes sortis et
+          pertes.
+        </p>
       </div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <KpiCard label="Ruptures" value={fmtNum(stats.out)} icon={PackageX} />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Stock restant" value={fmtNum(data.stockQty)} icon={Package} tone="gold" />
+        <KpiCard label="Articles sortis (POS)" value={fmtNum(data.unitsSoldToPos)} icon={TrendingUp} />
+        <KpiCard label="Encaissements" value={fmtUsd(data.cashReceived)} icon={Wallet} />
+        <KpiCard label="Charges dépôt" value={fmtUsd(data.expensesTotal)} icon={Receipt} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiCard label="Valeur stock" value={fmtUsd(data.stockValue)} icon={Store} />
+        <KpiCard label="Stock bas" value={fmtNum(data.lowStock)} icon={TrendingDown} />
+        <KpiCard label="Ruptures" value={fmtNum(data.outOfStock)} icon={PackageX} />
+        <KpiCard label="Pertes / offerts" value={fmtNum(data.writeoffUnits)} icon={AlertTriangle} hint="Unités 0 $" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
         <Button asChild variant="outline" className="h-auto justify-start p-4">
           <Link to="/depot-restocks">
             <div className="text-left">
-              <div className="font-medium">Approvisionnement</div>
-              <div className="text-xs text-muted-foreground">Entrée stock global</div>
+              <div className="font-medium">Entrée stock</div>
+              <div className="text-xs text-muted-foreground">Réception fournisseur</div>
             </div>
           </Link>
         </Button>
@@ -112,6 +129,56 @@ function DepotDashboard() {
             </div>
           </Link>
         </Button>
+        <Button asChild variant="outline" className="h-auto justify-start p-4">
+          <Link to="/stock-writeoff">
+            <div className="text-left">
+              <div className="font-medium">Pertes / abîmé</div>
+              <div className="text-xs text-muted-foreground">Sortie à 0 $</div>
+            </div>
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard title="Dernières sorties vers POS">
+          <div className="space-y-2">
+            {data.recentOutflows.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Aucune sortie.</p>
+            ) : (
+              data.recentOutflows.map((row) => (
+                <div key={row.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                  <div>
+                    <div className="font-medium">{row.manager}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.date}
+                      {row.qty ? ` · ${fmtNum(row.qty)} articles` : ""}
+                    </div>
+                  </div>
+                  <div className="font-semibold text-accent-foreground">{fmtUsd(row.amount)}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </SectionCard>
+        <SectionCard title="Pertes / abîmé / offert">
+          <div className="space-y-2">
+            {data.recentWriteoffs.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Aucune sortie 0 $.</p>
+            ) : (
+              data.recentWriteoffs.map((row) => (
+                <div key={row.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                  <div>
+                    <div className="font-medium">{row.product}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.createdAt} · {writeoffLabel(row.type)}
+                    </div>
+                  </div>
+                  <div className="font-semibold">−{fmtNum(row.qty)}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </SectionCard>
       </div>
     </div>
   );
@@ -209,16 +276,27 @@ function CEODashboard() {
         }
       />
 
+      <div className="rounded-xl border border-accent/25 bg-accent/5 p-4 text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">Résultat net</span> = CA dépôt (appro managers) + CA
+        ventes POS − charges (POS + dépôt + CEO). Les achats stock ne sont pas des charges.
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Stock dépôt (qté)" value={fmtNum(data.globalStockQty)} icon={Package} tone="gold" />
-        <KpiCard label="Revenus totaux" value={fmtUsd(data.revenue)} icon={TrendingUp} />
-        <KpiCard label="Bénéfice net" value={fmtUsd(data.profit)} icon={Wallet} tone={data.profit >= 0 ? "gold" : "default"} />
-        <KpiCard label="Charges" value={fmtUsd(totalExpenses)} icon={Receipt} />
+        <KpiCard label="CA dépôt (appro)" value={fmtUsd(data.depotRevenue)} icon={Store} hint="Paiements managers" />
+        <KpiCard label="CA ventes POS" value={fmtUsd(data.salesRevenue)} icon={TrendingUp} hint="Détail + gros" />
+        <KpiCard
+          label="Résultat net"
+          value={fmtUsd(data.profit)}
+          icon={Wallet}
+          tone={data.profit >= 0 ? "gold" : "default"}
+          hint="CA total − charges"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-6">
-        <KpiCard label="Recettes dépôt" value={fmtUsd(data.depotRevenue)} icon={Store} />
-        <KpiCard label="Ventes POS" value={fmtUsd(data.salesRevenue)} icon={TrendingUp} />
+        <KpiCard label="CA total" value={fmtUsd(data.revenue)} icon={TrendingUp} hint="Dépôt + ventes" />
+        <KpiCard label="Charges" value={fmtUsd(totalExpenses)} icon={Receipt} />
         <KpiCard label="Stock POS (qté)" value={fmtNum(data.posStockQty)} icon={Package} />
         <KpiCard label="Points de vente" value={fmtNum(data.locationsCount)} icon={MapPin} />
         <KpiCard label="Stock bas" value={fmtNum(depotLowStock)} icon={TrendingDown} hint="Dépôt" />
@@ -293,7 +371,7 @@ function CEODashboard() {
               </div>
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Recettes dépôt</span>
+                  <span className="text-muted-foreground">CA dépôt (appro)</span>
                   <span className="font-medium">{fmtUsd(data.depotRevenue)}</span>
                 </div>
                 <div className="flex justify-between">
@@ -354,7 +432,7 @@ function CEODashboard() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Recettes dépôt">
+        <SectionCard title="CA dépôt — paiements managers">
           <div className="space-y-3">
             {recentDepotReceipts.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Aucune recette dépôt.</p>
@@ -442,18 +520,44 @@ function ManagerDashboard() {
         description={data.hasLocation ? data.locationName : "Aucun point de vente assigné"}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Stock point de vente" value={fmtNum(data.posStockQty)} icon={Package} tone="gold" hint="Unités en stock" />
-        <KpiCard label="Approvisionnements" value={fmtUsd(data.investmentTotal)} icon={Store} />
-        <KpiCard label="Dépenses" value={fmtUsd(data.expensesTotal)} icon={Receipt} />
-        <KpiCard label="Produits vendus" value={fmtNum(data.productsSold)} icon={TrendingUp} />
+      <div className="rounded-xl border border-accent/25 bg-accent/5 p-4 text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">Net boutique</span> = Ventes − Investissements (achats
+        dépôt) − Dépenses
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Lignes stock" value={fmtNum(data.stockLines)} icon={Package} />
-        <KpiCard label="Stock bas" value={fmtNum(data.lowStock)} icon={TrendingDown} hint="Point de vente" />
-        <KpiCard label="Ruptures" value={fmtNum(data.outOfStock)} icon={PackageX} hint="Point de vente" />
-        <KpiCard label="Rapports envoyés" value={fmtNum(data.reportsCount)} icon={ClipboardList} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Ventes (CA)" value={fmtUsd(data.salesRevenue)} icon={TrendingUp} tone="gold" />
+        <KpiCard label="Investissements" value={fmtUsd(data.investmentTotal)} icon={Store} hint="Achats dépôt" />
+        <KpiCard label="Dépenses" value={fmtUsd(data.expensesTotal)} icon={Receipt} />
+        <KpiCard
+          label="Net boutique"
+          value={fmtUsd(data.netProfit)}
+          icon={Wallet}
+          tone={data.netProfit >= 0 ? "gold" : "default"}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <KpiCard label="Stock POS" value={fmtNum(data.posStockQty)} icon={Package} />
+        <KpiCard label="Produits vendus" value={fmtNum(data.productsSold)} icon={TrendingUp} />
+        <KpiCard label="Stock bas" value={fmtNum(data.lowStock)} icon={TrendingDown} />
+        <KpiCard label="Ruptures" value={fmtNum(data.outOfStock)} icon={PackageX} />
+        <KpiCard label="Rapports" value={fmtNum(data.reportsCount)} icon={ClipboardList} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Button asChild variant="outline" className="h-auto justify-start p-3">
+          <Link to="/manager-investment">Approvisionnement</Link>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start p-3">
+          <Link to="/weekly-report">Rapport ventes</Link>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start p-3">
+          <Link to="/manager-expenses">Dépenses</Link>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start p-3">
+          <Link to="/stock-writeoff">Pertes / offert 0 $</Link>
+        </Button>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
@@ -529,9 +633,13 @@ function ManagerDashboard() {
                   <span className="text-muted-foreground">Approvisionnements</span>
                   <span className="font-medium">{fmtUsd(data.investmentTotal)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ventes</span>
+                  <span className="font-medium">{fmtUsd(data.salesRevenue)}</span>
+                </div>
                 <div className="flex justify-between border-t pt-2">
-                  <span className="text-muted-foreground">Total dépenses</span>
-                  <span className="font-semibold">{fmtUsd(data.expensesTotal)}</span>
+                  <span className="text-muted-foreground">Net boutique</span>
+                  <span className="font-semibold">{fmtUsd(data.netProfit)}</span>
                 </div>
               </div>
             </div>
@@ -588,7 +696,7 @@ function ManagerDashboard() {
                       {row.weekStart} → {row.weekEnd}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {fmtNum(row.productsSold)} produits vendus
+                      {fmtNum(row.productsSold)} produits · {fmtUsd(row.totalRevenue)}
                     </div>
                   </div>
                   <Badge variant="outline">{row.status}</Badge>

@@ -23,6 +23,8 @@ export type ManagerDashboardData = {
   posStockQty: number;
   investmentTotal: number;
   expensesTotal: number;
+  salesRevenue: number;
+  netProfit: number;
   productsSold: number;
   stockLines: number;
   lowStock: number;
@@ -31,7 +33,14 @@ export type ManagerDashboardData = {
   monthlyPoints: ManagerMonthlyPoint[];
   recentInvestments: { id: string; date: string; total: number; notes: string | null }[];
   recentExpenses: { id: string; date: string; category: string; amount: number }[];
-  recentReports: { id: string; weekStart: string; weekEnd: string; productsSold: number; status: string }[];
+  recentReports: {
+    id: string;
+    weekStart: string;
+    weekEnd: string;
+    productsSold: number;
+    totalRevenue: number;
+    status: string;
+  }[];
 };
 
 const emptyMonthly = () =>
@@ -61,7 +70,12 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
     supabase.from("erp_products").select("id, unit_purchase_price, min_stock"),
     supabase.from("manager_investments").select("id, date, total_amount, notes").eq("manager_id", managerId),
     supabase.from("global_expenses").select("id, date, category, amount").eq("recorded_by", managerId),
-    supabase.from("manager_reports").select("id, week_start_date, week_end_date, products_sold, status, created_at").eq("manager_id", managerId),
+    supabase
+      .from("manager_reports")
+      .select(
+        "id, week_start_date, week_end_date, products_sold, total_revenue, status, created_at",
+      )
+      .eq("manager_id", managerId),
   ]);
 
   const products = productsResult.data ?? [];
@@ -132,15 +146,25 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
       weekStart: String(row.week_start_date ?? ""),
       weekEnd: String(row.week_end_date ?? ""),
       productsSold: toNumber(row.products_sold),
+      totalRevenue: toNumber(row.total_revenue),
       status: row.status || "submitted",
     }));
+
+  const investmentTotal = investments.reduce((sum, row) => sum + toNumber(row.total_amount), 0);
+  const expensesTotal = expenses
+    .filter((row) => row.category !== "stock_purchase" && row.category !== "investment")
+    .reduce((sum, row) => sum + toNumber(row.amount), 0);
+  const salesRevenue = reports.reduce((sum, row) => sum + toNumber(row.total_revenue), 0);
+  const netProfit = salesRevenue - investmentTotal - expensesTotal;
 
   return {
     locationName: locationResult.data?.name || "Non assigné",
     hasLocation: Boolean(locationId),
     posStockQty,
-    investmentTotal: investments.reduce((sum, row) => sum + toNumber(row.total_amount), 0),
-    expensesTotal: expenses.reduce((sum, row) => sum + toNumber(row.amount), 0),
+    investmentTotal,
+    expensesTotal,
+    salesRevenue,
+    netProfit,
     productsSold: reports.reduce((sum, row) => sum + toNumber(row.products_sold), 0),
     stockLines: stocks.length,
     lowStock,
@@ -148,7 +172,9 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
     reportsCount: reports.length,
     monthlyPoints: MONTH_LABELS.map((month) => monthlyMap[month]),
     recentInvestments,
-    recentExpenses,
+    recentExpenses: recentExpenses.filter(
+      (row) => row.category !== "stock_purchase" && row.category !== "investment",
+    ),
     recentReports,
   } satisfies ManagerDashboardData;
 }

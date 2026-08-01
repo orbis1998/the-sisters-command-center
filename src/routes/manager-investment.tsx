@@ -49,8 +49,8 @@ function ManagerInvestmentPage() {
     })();
   }, []);
 
-  if (role === "ceo") {
-    return <div className="p-8 text-center">Réservé aux managers.</div>;
+  if (role !== "manager") {
+    return <div className="p-8 text-center">Réservé aux managers des points de vente.</div>;
   }
 
   const total = lines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0), 0);

@@ -102,7 +102,7 @@ export async function loadExecutiveDashboard() {
         "id, manager_id, location_id, week_start_date, week_end_date, products_sold, total_revenue, retail_revenue, wholesale_revenue, status, created_at",
       ),
     supabase.from("depot_receipts").select("id, date, amount"),
-    supabase.from("locations").select("id, name").neq("name", "DEPOT GLOBAL"),
+    supabase.from("locations").select("id, name"),
     supabase.from("erp_managers").select("id, name, location_id, is_active"),
     loadCeoPersonalExpenses(500),
     loadDepotExpenses(500),
@@ -113,7 +113,11 @@ export async function loadExecutiveDashboard() {
   const expenses = expensesResult.data ?? [];
   const reports = reportsResult.data ?? [];
   const depotReceipts = depotReceiptsResult.data ?? [];
-  const locations = locationsResult.data ?? [];
+  const allLocations = locationsResult.data ?? [];
+  const locations = allLocations.filter((l) => l.name !== "DEPOT GLOBAL");
+  const depotLocationIds = new Set(
+    allLocations.filter((l) => l.name === "DEPOT GLOBAL").map((l) => l.id),
+  );
   const managers = managersResult.data ?? [];
 
   const managerById = new Map(managers.map((manager) => [manager.id, manager] as const));
@@ -125,9 +129,10 @@ export async function loadExecutiveDashboard() {
   const scopedExpenses = period
     ? expenses.filter((e) => dateInPeriod(e.date, period))
     : expenses;
-  const scopedReports = period
+  const scopedReports = (period
     ? reports.filter((r) => dateInPeriod(reportDate(r), period))
-    : reports;
+    : reports
+  ).filter((r) => !depotLocationIds.has(r.location_id));
   const scopedCeo = period
     ? ceoPersonal.filter((e) => dateInPeriod(e.date, period))
     : ceoPersonal;

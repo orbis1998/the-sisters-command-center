@@ -24,14 +24,9 @@ type Product = {
 };
 
 function WeeklyReportPage() {
-  const { role, manager, depotAccount } = useRole();
+  const { role, manager } = useRole();
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-
-  const isDepot = role === "depot";
-  const isManager = role === "manager";
-  const actorId = isDepot ? depotAccount?.report_manager_id : manager?.id;
-  const locationId = isDepot ? depotAccount?.location_id : manager?.location_id;
 
   useEffect(() => {
     void (async () => {
@@ -43,12 +38,12 @@ function WeeklyReportPage() {
     })();
   }, []);
 
-  if (role === "ceo" || role === "loading" || role === "unauthorized") {
-    return <div className="p-8 text-center">Réservé aux managers et au compte dépôt.</div>;
-  }
-
-  if (!isManager && !isDepot) {
-    return <div className="p-8 text-center">Réservé aux managers et au compte dépôt.</div>;
+  if (role !== "manager") {
+    return (
+      <div className="p-8 text-center">
+        Réservé aux managers des points de vente. Le dépôt ne saisit pas de ventes clients.
+      </div>
+    );
   }
 
   const handleSubmit = (e: FormEvent) => {
@@ -63,8 +58,8 @@ function WeeklyReportPage() {
       toast.error("Dates de semaine requises.");
       return;
     }
-    if (!actorId || !locationId) {
-      toast.error(isDepot ? "Compte dépôt non configuré (location / rapport)." : "Point de vente non assigné.");
+    if (!manager?.id || !manager.location_id) {
+      toast.error("Point de vente non assigné.");
       return;
     }
 
@@ -113,8 +108,8 @@ function WeeklyReportPage() {
       const { data: report, error: reportError } = await supabase
         .from("manager_reports")
         .insert({
-          manager_id: actorId,
-          location_id: locationId,
+          manager_id: manager.id,
+          location_id: manager.location_id,
           week_start_date: weekStart,
           week_end_date: weekEnd,
           products_sold: productsSold,
@@ -144,25 +139,11 @@ function WeeklyReportPage() {
       for (const row of salesRows) {
         if (String(fd.get(`remaining_${row.erp_product_id}`) ?? "").trim() === "") continue;
 
-        if (isDepot) {
-          const { error: stockError } = await supabase.rpc("apply_depot_weekly_stock", {
-            p_product_id: row.erp_product_id,
-            p_remaining: row.remaining_stock,
-            p_report_id: report.id,
-          });
-          if (stockError) {
-            toast.error(stockError.message);
-            setSaving(false);
-            return;
-          }
-          continue;
-        }
-
         const { data: existing } = await supabase
           .from("inventory_stock")
           .select("id")
           .eq("erp_product_id", row.erp_product_id)
-          .eq("location_id", locationId)
+          .eq("location_id", manager.location_id)
           .maybeSingle();
 
         if (existing?.id) {
@@ -170,14 +151,14 @@ function WeeklyReportPage() {
         } else {
           await supabase.from("inventory_stock").insert({
             erp_product_id: row.erp_product_id,
-            location_id: locationId,
+            location_id: manager.location_id,
             quantity: row.remaining_stock,
           });
         }
 
         await supabase.from("erp_stock_movements").insert({
           erp_product_id: row.erp_product_id,
-          location_id: locationId,
+          location_id: manager.location_id,
           movement_type: "weekly_stock_update",
           quantity_change: 0,
           reference_type: "report",
@@ -196,7 +177,7 @@ function WeeklyReportPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title="Rapport hebdomadaire"
-        description={isDepot ? "Ventes et stock restant du dépôt global" : undefined}
+        description="Ventes détail et gros du point de vente uniquement"
       />
 
       <SectionCard title="Ventes & stock de la semaine">
@@ -264,16 +245,11 @@ function WeeklyReportPage() {
           </div>
 
           <div className="rounded-lg border bg-muted/20 p-4 text-sm">
-            <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Aide à la saisie</div>
+            <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Aide</div>
             <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-              <li>Chaque produit rempli apparaît ligne par ligne dans le rapport CEO.</li>
               <li>Revenu détail = quantité × prix unitaire admin.</li>
               <li>Gros = montant total saisi (pas la quantité).</li>
-              {isDepot ? (
-                <li>Le stock restant met à jour le stock global du dépôt.</li>
-              ) : (
-                <li>Les dépenses POS de la semaine sont rattachées automatiquement au détail CEO.</li>
-              )}
+              <li>Les pertes / offerts à 0 $ se signalent dans le menu dédié.</li>
             </ul>
           </div>
 

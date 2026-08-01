@@ -39,18 +39,26 @@ export async function loadAccountingSummary(): Promise<AccountingSummary> {
     { data: posStock },
     { data: ceoRows },
     { data: depotExpenseRows },
+    { data: depotLocations },
   ] = await Promise.all([
     supabase.from("depot_receipts").select("amount, date"),
-    supabase.from("manager_reports").select("total_revenue, week_start_date, week_end_date, created_at"),
+    supabase
+      .from("manager_reports")
+      .select("total_revenue, week_start_date, week_end_date, created_at, location_id"),
     supabase.from("global_expenses").select("amount, category, date"),
     supabase.from("erp_products").select("global_qty"),
     supabase.from("inventory_stock").select("quantity"),
     supabase.from("ceo_personal_expenses").select("amount, date"),
     supabase.from("depot_expenses").select("amount, date"),
+    supabase.from("locations").select("id").eq("name", "DEPOT GLOBAL"),
   ]);
 
+  const depotLocationIds = new Set((depotLocations || []).map((l) => l.id));
   const scopedDepot = (depotRows || []).filter((r) => (period ? dateInPeriod(String(r.date ?? ""), period) : true));
-  const scopedReports = (reportRows || []).filter((r) => (period ? dateInPeriod(reportDate(r), period) : true));
+  const scopedReports = (reportRows || []).filter((r) => {
+    if (depotLocationIds.has(r.location_id)) return false;
+    return period ? dateInPeriod(reportDate(r), period) : true;
+  });
   const scopedExpenses = (expenseRows || []).filter((e) => (period ? dateInPeriod(String(e.date ?? ""), period) : true));
   const scopedCeo = (ceoRows || []).filter((e) => (period ? dateInPeriod(String(e.date ?? ""), period) : true));
   const scopedDepotExp = (depotExpenseRows || []).filter((e) =>
@@ -181,6 +189,9 @@ export async function loadStockMovements(limit = 100): Promise<StockMovementRow[
     pos_restock_from_depot: "Entrée POS",
     weekly_stock_update: "Màj stock hebdo",
     correction: "Correction",
+    loss: "Perte",
+    damage: "Abîmé",
+    gift: "Offert (0 $)",
   };
 
   return data.map((row) => ({
