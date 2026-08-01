@@ -22,7 +22,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManagerExpensesRouteImport } from './routes/manager-expenses'
 import { Route as ManagerInvestmentRouteImport } from './routes/manager-investment'
 import { Route as ManagerStockRouteImport } from './routes/manager-stock'
+import { Route as ManagerTransferRouteImport } from './routes/manager-transfer'
 import { Route as ManagersRouteImport } from './routes/managers'
+import { Route as PeriodOpeningRouteImport } from './routes/period-opening'
 import { Route as PosOverviewRouteImport } from './routes/pos-overview'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as RestocksRouteImport } from './routes/restocks'
@@ -30,6 +32,8 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StockFlowsRouteImport } from './routes/stock-flows'
 import { Route as StockWriteoffRouteImport } from './routes/stock-writeoff'
 import { Route as WeeklyReportRouteImport } from './routes/weekly-report'
+import { Route as PosOverviewIndexRouteImport } from './routes/pos-overview.index'
+import { Route as PosOverviewLocationIdRouteImport } from './routes/pos-overview.$locationId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -96,9 +100,19 @@ const ManagerStockRoute = ManagerStockRouteImport.update({
   path: '/manager-stock',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManagerTransferRoute = ManagerTransferRouteImport.update({
+  id: '/manager-transfer',
+  path: '/manager-transfer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ManagersRoute = ManagersRouteImport.update({
   id: '/managers',
   path: '/managers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PeriodOpeningRoute = PeriodOpeningRouteImport.update({
+  id: '/period-opening',
+  path: '/period-opening',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PosOverviewRoute = PosOverviewRouteImport.update({
@@ -136,6 +150,16 @@ const WeeklyReportRoute = WeeklyReportRouteImport.update({
   path: '/weekly-report',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PosOverviewIndexRoute = PosOverviewIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PosOverviewRoute,
+} as any)
+const PosOverviewLocationIdRoute = PosOverviewLocationIdRouteImport.update({
+  id: '/$locationId',
+  path: '/$locationId',
+  getParentRoute: () => PosOverviewRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -151,14 +175,18 @@ export interface FileRoutesByFullPath {
   '/manager-expenses': typeof ManagerExpensesRoute
   '/manager-investment': typeof ManagerInvestmentRoute
   '/manager-stock': typeof ManagerStockRoute
+  '/manager-transfer': typeof ManagerTransferRoute
   '/managers': typeof ManagersRoute
-  '/pos-overview': typeof PosOverviewRoute
+  '/period-opening': typeof PeriodOpeningRoute
+  '/pos-overview': typeof PosOverviewRouteWithChildren
   '/reports': typeof ReportsRoute
   '/restocks': typeof RestocksRoute
   '/settings': typeof SettingsRoute
   '/stock-flows': typeof StockFlowsRoute
   '/stock-writeoff': typeof StockWriteoffRoute
   '/weekly-report': typeof WeeklyReportRoute
+  '/pos-overview/$locationId': typeof PosOverviewLocationIdRoute
+  '/pos-overview/': typeof PosOverviewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -174,14 +202,17 @@ export interface FileRoutesByTo {
   '/manager-expenses': typeof ManagerExpensesRoute
   '/manager-investment': typeof ManagerInvestmentRoute
   '/manager-stock': typeof ManagerStockRoute
+  '/manager-transfer': typeof ManagerTransferRoute
   '/managers': typeof ManagersRoute
-  '/pos-overview': typeof PosOverviewRoute
+  '/period-opening': typeof PeriodOpeningRoute
   '/reports': typeof ReportsRoute
   '/restocks': typeof RestocksRoute
   '/settings': typeof SettingsRoute
   '/stock-flows': typeof StockFlowsRoute
   '/stock-writeoff': typeof StockWriteoffRoute
   '/weekly-report': typeof WeeklyReportRoute
+  '/pos-overview/$locationId': typeof PosOverviewLocationIdRoute
+  '/pos-overview': typeof PosOverviewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -198,14 +229,18 @@ export interface FileRoutesById {
   '/manager-expenses': typeof ManagerExpensesRoute
   '/manager-investment': typeof ManagerInvestmentRoute
   '/manager-stock': typeof ManagerStockRoute
+  '/manager-transfer': typeof ManagerTransferRoute
   '/managers': typeof ManagersRoute
-  '/pos-overview': typeof PosOverviewRoute
+  '/period-opening': typeof PeriodOpeningRoute
+  '/pos-overview': typeof PosOverviewRouteWithChildren
   '/reports': typeof ReportsRoute
   '/restocks': typeof RestocksRoute
   '/settings': typeof SettingsRoute
   '/stock-flows': typeof StockFlowsRoute
   '/stock-writeoff': typeof StockWriteoffRoute
   '/weekly-report': typeof WeeklyReportRoute
+  '/pos-overview/$locationId': typeof PosOverviewLocationIdRoute
+  '/pos-overview/': typeof PosOverviewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -223,7 +258,9 @@ export interface FileRouteTypes {
     | '/manager-expenses'
     | '/manager-investment'
     | '/manager-stock'
+    | '/manager-transfer'
     | '/managers'
+    | '/period-opening'
     | '/pos-overview'
     | '/reports'
     | '/restocks'
@@ -231,6 +268,8 @@ export interface FileRouteTypes {
     | '/stock-flows'
     | '/stock-writeoff'
     | '/weekly-report'
+    | '/pos-overview/$locationId'
+    | '/pos-overview/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -246,14 +285,17 @@ export interface FileRouteTypes {
     | '/manager-expenses'
     | '/manager-investment'
     | '/manager-stock'
+    | '/manager-transfer'
     | '/managers'
-    | '/pos-overview'
+    | '/period-opening'
     | '/reports'
     | '/restocks'
     | '/settings'
     | '/stock-flows'
     | '/stock-writeoff'
     | '/weekly-report'
+    | '/pos-overview/$locationId'
+    | '/pos-overview'
   id:
     | '__root__'
     | '/'
@@ -269,7 +311,9 @@ export interface FileRouteTypes {
     | '/manager-expenses'
     | '/manager-investment'
     | '/manager-stock'
+    | '/manager-transfer'
     | '/managers'
+    | '/period-opening'
     | '/pos-overview'
     | '/reports'
     | '/restocks'
@@ -277,6 +321,8 @@ export interface FileRouteTypes {
     | '/stock-flows'
     | '/stock-writeoff'
     | '/weekly-report'
+    | '/pos-overview/$locationId'
+    | '/pos-overview/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -293,8 +339,10 @@ export interface RootRouteChildren {
   ManagerExpensesRoute: typeof ManagerExpensesRoute
   ManagerInvestmentRoute: typeof ManagerInvestmentRoute
   ManagerStockRoute: typeof ManagerStockRoute
+  ManagerTransferRoute: typeof ManagerTransferRoute
   ManagersRoute: typeof ManagersRoute
-  PosOverviewRoute: typeof PosOverviewRoute
+  PeriodOpeningRoute: typeof PeriodOpeningRoute
+  PosOverviewRoute: typeof PosOverviewRouteWithChildren
   ReportsRoute: typeof ReportsRoute
   RestocksRoute: typeof RestocksRoute
   SettingsRoute: typeof SettingsRoute
@@ -396,11 +444,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManagerStockRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/manager-transfer': {
+      id: '/manager-transfer'
+      path: '/manager-transfer'
+      fullPath: '/manager-transfer'
+      preLoaderRoute: typeof ManagerTransferRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/managers': {
       id: '/managers'
       path: '/managers'
       fullPath: '/managers'
       preLoaderRoute: typeof ManagersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/period-opening': {
+      id: '/period-opening'
+      path: '/period-opening'
+      fullPath: '/period-opening'
+      preLoaderRoute: typeof PeriodOpeningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pos-overview': {
@@ -452,8 +514,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WeeklyReportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pos-overview/': {
+      id: '/pos-overview/'
+      path: '/'
+      fullPath: '/pos-overview/'
+      preLoaderRoute: typeof PosOverviewIndexRouteImport
+      parentRoute: typeof PosOverviewRoute
+    }
+    '/pos-overview/$locationId': {
+      id: '/pos-overview/$locationId'
+      path: '/$locationId'
+      fullPath: '/pos-overview/$locationId'
+      preLoaderRoute: typeof PosOverviewLocationIdRouteImport
+      parentRoute: typeof PosOverviewRoute
+    }
   }
 }
+
+interface PosOverviewRouteChildren {
+  PosOverviewLocationIdRoute: typeof PosOverviewLocationIdRoute
+  PosOverviewIndexRoute: typeof PosOverviewIndexRoute
+}
+
+const PosOverviewRouteChildren: PosOverviewRouteChildren = {
+  PosOverviewLocationIdRoute: PosOverviewLocationIdRoute,
+  PosOverviewIndexRoute: PosOverviewIndexRoute,
+}
+
+const PosOverviewRouteWithChildren = PosOverviewRoute._addFileChildren(
+  PosOverviewRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -469,8 +559,10 @@ const rootRouteChildren: RootRouteChildren = {
   ManagerExpensesRoute: ManagerExpensesRoute,
   ManagerInvestmentRoute: ManagerInvestmentRoute,
   ManagerStockRoute: ManagerStockRoute,
+  ManagerTransferRoute: ManagerTransferRoute,
   ManagersRoute: ManagersRoute,
-  PosOverviewRoute: PosOverviewRoute,
+  PeriodOpeningRoute: PeriodOpeningRoute,
+  PosOverviewRoute: PosOverviewRouteWithChildren,
   ReportsRoute: ReportsRoute,
   RestocksRoute: RestocksRoute,
   SettingsRoute: SettingsRoute,

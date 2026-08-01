@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { useRole } from "@/lib/role-context";
+import { loadManagerCash } from "@/lib/manager-cash";
+import { newId } from "@/lib/id";
 import { supabase } from "@/lib/supabase-client";
 import { fmtUsd } from "@/lib/format";
 
@@ -35,19 +37,31 @@ function ManagerInvestmentPage() {
   const { role, manager } = useRole();
   const [products, setProducts] = useState<Product[]>([]);
   const [lines, setLines] = useState<Line[]>([
-    { key: crypto.randomUUID(), productId: "", quantity: 1, unitPrice: 0 },
+    { key: "line-1", productId: "", quantity: 1, unitPrice: 0 },
   ]);
   const [saving, setSaving] = useState(false);
+  const [cashAvailable, setCashAvailable] = useState<number | null>(null);
 
   useEffect(() => {
     void (async () => {
-      const { data } = await supabase
-        .from("erp_products")
-        .select("id, name, sku, unit_purchase_price, global_qty")
-        .order("name");
-      setProducts((data || []) as Product[]);
+      try {
+        const { data } = await supabase
+          .from("erp_products")
+          .select("id, name, sku, unit_purchase_price, global_qty")
+          .order("name");
+        setProducts((data || []) as Product[]);
+      } catch {
+        setProducts([]);
+      }
     })();
   }, []);
+
+  useEffect(() => {
+    if (role !== "manager" || !manager?.id) return;
+    void loadManagerCash(manager.id, manager.location_id)
+      .then((cash) => setCashAvailable(cash.cashAvailable))
+      .catch(() => setCashAvailable(0));
+  }, [role, manager?.id, manager?.location_id]);
 
   if (role !== "manager") {
     return <div className="p-8 text-center">Réservé aux managers des points de vente.</div>;
@@ -78,6 +92,17 @@ function ManagerInvestmentPage() {
 
     setSaving(true);
     void (async () => {
+      try {
+      const cash = await loadManagerCash(manager.id, manager.location_id);
+      setCashAvailable(cash.cashAvailable);
+      if (total > cash.cashAvailable + 0.001) {
+        toast.error(
+          `Fonds insuffisants (disponible: ${fmtUsd(cash.cashAvailable)}). Enregistrez d'abord vos ventes.`,
+        );
+        setSaving(false);
+        return;
+      }
+
       for (const line of validLines) {
         const product = products.find((p) => p.id === line.productId);
         if (!product) {
@@ -168,20 +193,35 @@ function ManagerInvestmentPage() {
       }
 
       toast.success("Approvisionnement enregistré. Stock global déduit.");
-      setLines([{ key: crypto.randomUUID(), productId: "", quantity: 1, unitPrice: 0 }]);
+      setLines([{ key: newId(), productId: "", quantity: 1, unitPrice: 0 }]);
       form.reset();
-      const { data } = await supabase
-        .from("erp_products")
-        .select("id, name, sku, unit_purchase_price, global_qty")
-        .order("name");
+      const [{ data }, cashAfter] = await Promise.all([
+        supabase
+          .from("erp_products")
+          .select("id, name, sku, unit_purchase_price, global_qty")
+          .order("name"),
+        loadManagerCash(manager.id, manager.location_id),
+      ]);
       setProducts((data || []) as Product[]);
-      setSaving(false);
+      setCashAvailable(cashAfter.cashAvailable);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Impossible d'enregistrer");
+      } finally {
+        setSaving(false);
+      }
     })();
   };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <PageHeader title="Approvisionnement" />
+      <PageHeader
+        title="Approvisionnement"
+        description={
+          cashAvailable === null
+            ? "Payé depuis la caisse de la semaine"
+            : `Caisse disponible: ${fmtUsd(cashAvailable)}`
+        }
+      />
 
       <SectionCard title="Achat au dépôt">
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -193,6 +233,11 @@ function ManagerInvestmentPage() {
             <div className="space-y-2">
               <Label>Total</Label>
               <div className="flex h-9 items-center rounded-md border px-3 text-sm font-semibold">{fmtUsd(total)}</div>
+              {cashAvailable !== null && total > cashAvailable && (
+                <p className="text-xs text-destructive">
+                  Dépassé — fonds insuffisants ({fmtUsd(cashAvailable)}).
+                </p>
+              )}
             </div>
           </div>
 
@@ -218,7 +263,7 @@ function ManagerInvestmentPage() {
                         <option value="">Choisir</option>
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.name} · dispo {p.global_qty}
+                            {p.name}
                           </option>
                         ))}
                       </select>
@@ -272,7 +317,7 @@ function ManagerInvestmentPage() {
             type="button"
             variant="outline"
             onClick={() =>
-              setLines((prev) => [...prev, { key: crypto.randomUUID(), productId: "", quantity: 1, unitPrice: 0 }])
+              setLines((prev) => [...prev, { key: newId(), productId: "", quantity: 1, unitPrice: 0 }])
             }
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />Ajouter une ligne

@@ -73,7 +73,7 @@ function ManagerStockPage() {
           </div>
         ) : rows.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            Aucun stock. Faites un approvisionnement au dépôt.
+            Aucun stock. Complétez l'ouverture d'exercice ou un approvisionnement.
           </p>
         ) : (
           <div className="overflow-x-auto">

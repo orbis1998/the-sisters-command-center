@@ -6,7 +6,6 @@ import {
   Sparkles,
   Users,
   Activity,
-  Settings,
   Truck,
   Receipt,
   ClipboardList,
@@ -16,6 +15,7 @@ import {
   CalendarRange,
   Warehouse,
   PackageMinus,
+  Flag,
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,12 +36,12 @@ import { loadOpenAccountingPeriod } from "@/lib/accounting-periods";
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isCEO, isDepot } = useRole();
-  const [periodLabel, setPeriodLabel] = useState("—");
+  const [periodStart, setPeriodStart] = useState("—");
 
   useEffect(() => {
     if (!isCEO) return;
     void loadOpenAccountingPeriod().then((period) => {
-      setPeriodLabel(period?.label || "—");
+      setPeriodStart(period?.start_date || "—");
     });
   }, [isCEO, pathname]);
 
@@ -73,7 +73,6 @@ export function AppSidebar() {
       items: [
         { title: "Équipe", url: "/managers", icon: Users },
         { title: "Activité", url: "/activity", icon: Activity },
-        { title: "Paramètres", url: "/settings", icon: Settings },
       ],
     },
   ];
@@ -83,10 +82,11 @@ export function AppSidebar() {
       label: "Point de vente",
       items: [
         { title: "Tableau de bord", url: "/", icon: LayoutDashboard },
+        { title: "Ouverture d'exercice", url: "/period-opening", icon: Flag },
         { title: "Mon stock", url: "/manager-stock", icon: Boxes },
-        { title: "Approvisionnement", url: "/manager-investment", icon: ShoppingCart },
-        { title: "Dépenses", url: "/manager-expenses", icon: Receipt },
         { title: "Rapport hebdomadaire", url: "/weekly-report", icon: ClipboardList },
+        { title: "Dépenses", url: "/manager-expenses", icon: Receipt },
+        { title: "Approvisionnement", url: "/manager-investment", icon: ShoppingCart },
         { title: "Pertes / offert", url: "/stock-writeoff", icon: PackageMinus },
       ],
     },
@@ -110,16 +110,11 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-4 py-5">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md gold-gradient text-primary font-display text-sm font-bold">
-            TS
+        <Link to="/" className="min-w-0 group-data-[collapsible=icon]:hidden">
+          <div className="font-display text-sm font-semibold leading-tight text-sidebar-foreground">
+            The Sisters
           </div>
-          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="font-display text-sm font-semibold leading-tight text-sidebar-foreground">
-              The Sisters
-            </div>
-            <div className="text-[11px] text-sidebar-foreground/60 tracking-wide">Business OS</div>
-          </div>
+          <div className="text-[11px] text-sidebar-foreground/60 tracking-wide">Business OS</div>
         </Link>
       </SidebarHeader>
 
@@ -153,7 +148,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 group-data-[collapsible=icon]:hidden">
         <div className="rounded-md border border-sidebar-border bg-sidebar-accent/40 p-3">
           <div className="text-[11px] uppercase tracking-widest text-sidebar-foreground/60">Exercice</div>
-          <div className="mt-1 font-display text-sm font-semibold text-sidebar-primary">{periodLabel}</div>
+          <div className="mt-1 font-display text-sm font-semibold text-sidebar-primary">{periodStart}</div>
         </div>
       </SidebarFooter>
     </Sidebar>

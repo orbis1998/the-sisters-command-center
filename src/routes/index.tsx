@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import {
   AlertTriangle,
+  ArrowLeftRight,
   ClipboardList,
   Loader2,
   MapPin,
@@ -84,19 +85,7 @@ function DepotDashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={depotAccount?.name || "Dépôt"}
-        description="Stock global · sorties vers POS · encaissements · pertes 0 $"
-      />
-
-      <div className="rounded-xl border border-accent/25 bg-gradient-to-br from-accent/10 via-background to-background p-5">
-        <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Flux dépôt</div>
-        <div className="mt-1 font-display text-lg font-semibold">Articles sortis ≠ ventes clients</div>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Les managers enregistrent les achats (CA dépôt). Ici vous suivez stock restant, volumes sortis et
-          pertes.
-        </p>
-      </div>
+      <PageHeader title={depotAccount?.name || "Dépôt"} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Stock restant" value={fmtNum(data.stockQty)} icon={Package} tone="gold" />
@@ -105,11 +94,10 @@ function DepotDashboard() {
         <KpiCard label="Charges dépôt" value={fmtUsd(data.expensesTotal)} icon={Receipt} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Valeur stock" value={fmtUsd(data.stockValue)} icon={Store} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <KpiCard label="Stock bas" value={fmtNum(data.lowStock)} icon={TrendingDown} />
         <KpiCard label="Ruptures" value={fmtNum(data.outOfStock)} icon={PackageX} />
-        <KpiCard label="Pertes / offerts" value={fmtNum(data.writeoffUnits)} icon={AlertTriangle} hint="Unités 0 $" />
+        <KpiCard label="Pertes" value={fmtNum(data.writeoffUnits)} icon={AlertTriangle} hint="Unités 0 $" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -160,7 +148,7 @@ function DepotDashboard() {
             )}
           </div>
         </SectionCard>
-        <SectionCard title="Pertes / abîmé / offert">
+        <SectionCard title="Pertes / abîmé">
           <div className="space-y-2">
             {data.recentWriteoffs.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Aucune sortie 0 $.</p>
@@ -189,55 +177,47 @@ function CEODashboard() {
   const [depotLowStock, setDepotLowStock] = useState(0);
   const [depotOutOfStock, setDepotOutOfStock] = useState(0);
   const [recentDepotReceipts, setRecentDepotReceipts] = useState<RecentDepotReceipt[]>([]);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    const refresh = async (silent = false) => {
-      if (!silent) setRefreshing(true);
-      try {
-        const result = await loadExecutiveDashboard();
-        const [{ data: products }, { data: receipts }] = await Promise.all([
-          supabase.from("erp_products").select("global_qty, min_stock"),
-          supabase
-            .from("depot_receipts")
-            .select("id, date, amount, manager_id")
-            .order("date", { ascending: false })
-            .limit(5),
-        ]);
-        const { data: managers } = await supabase.from("erp_managers").select("id, name");
+    const refresh = async () => {
+      const result = await loadExecutiveDashboard();
+      const [{ data: products }, { data: receipts }] = await Promise.all([
+        supabase.from("erp_products").select("global_qty, min_stock"),
+        supabase
+          .from("depot_receipts")
+          .select("id, date, amount, manager_id")
+          .order("date", { ascending: false })
+          .limit(5),
+      ]);
+      const { data: managers } = await supabase.from("erp_managers").select("id, name");
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        const managerById = new Map((managers || []).map((m) => [m.id, m.name]));
-        setData(result);
-        setDepotLowStock(
-          (products || []).filter(
-            (p) => Number(p.global_qty) > 0 && Number(p.global_qty) <= Number(p.min_stock || 0),
-          ).length,
-        );
-        setDepotOutOfStock((products || []).filter((p) => Number(p.global_qty) <= 0).length);
-        setRecentDepotReceipts(
-          (receipts || []).map((r) => ({
-            id: r.id,
-            date: String(r.date ?? ""),
-            amount: Number(r.amount || 0),
-            manager: managerById.get(r.manager_id) || "Manager",
-          })),
-        );
-        setLastRefresh(new Date());
-      } finally {
-        if (mounted && !silent) setRefreshing(false);
-      }
+      const managerById = new Map((managers || []).map((m) => [m.id, m.name]));
+      setData(result);
+      setDepotLowStock(
+        (products || []).filter(
+          (p) => Number(p.global_qty) > 0 && Number(p.global_qty) <= Number(p.min_stock || 0),
+        ).length,
+      );
+      setDepotOutOfStock((products || []).filter((p) => Number(p.global_qty) <= 0).length);
+      setRecentDepotReceipts(
+        (receipts || []).map((r) => ({
+          id: r.id,
+          date: String(r.date ?? ""),
+          amount: Number(r.amount || 0),
+          manager: managerById.get(r.manager_id) || "Manager",
+        })),
+      );
     };
 
     void refresh();
 
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") {
-        void refresh(true);
+        void refresh();
       }
     }, 30_000);
 
@@ -260,26 +240,7 @@ function CEODashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Tableau de bord"
-        description={
-          [
-            data.activePeriod
-              ? `Exercice : ${data.activePeriod.label} (depuis ${data.activePeriod.startDate})`
-              : null,
-            lastRefresh
-              ? `Actualisation auto toutes les 30 s · dernière MAJ ${lastRefresh.toLocaleTimeString("fr-FR")}${refreshing ? " · mise à jour…" : ""}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" · ") || undefined
-        }
-      />
-
-      <div className="rounded-xl border border-accent/25 bg-accent/5 p-4 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Résultat net</span> = CA dépôt (appro managers) + CA
-        ventes POS − charges (POS + dépôt + CEO). Les achats stock ne sont pas des charges.
-      </div>
+      <PageHeader title="Tableau de bord" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Stock dépôt (qté)" value={fmtNum(data.globalStockQty)} icon={Package} tone="gold" />
@@ -294,9 +255,15 @@ function CEODashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-7">
         <KpiCard label="CA total" value={fmtUsd(data.revenue)} icon={TrendingUp} hint="Dépôt + ventes" />
         <KpiCard label="Charges" value={fmtUsd(totalExpenses)} icon={Receipt} />
+        <KpiCard
+          label="Remises POS"
+          value={fmtUsd(data.posTransfers)}
+          icon={ArrowLeftRight}
+          hint="Caisse remise (hors double CA)"
+        />
         <KpiCard label="Stock POS (qté)" value={fmtNum(data.posStockQty)} icon={Package} />
         <KpiCard label="Points de vente" value={fmtNum(data.locationsCount)} icon={MapPin} />
         <KpiCard label="Stock bas" value={fmtNum(depotLowStock)} icon={TrendingDown} hint="Dépôt" />
@@ -520,26 +487,38 @@ function ManagerDashboard() {
         description={data.hasLocation ? data.locationName : "Aucun point de vente assigné"}
       />
 
-      <div className="rounded-xl border border-accent/25 bg-accent/5 p-4 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Net boutique</span> = Ventes − Investissements (achats
-        dépôt) − Dépenses
-      </div>
+      {!data.hasPeriodOpening && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm">
+          <div className="font-medium">Ouverture d'exercice requise</div>
+          <p className="mt-1 text-muted-foreground">
+            Saisissez le fonds de démarrage et le stock une seule fois pour cet exercice.
+          </p>
+          <Button asChild size="sm" className="mt-3">
+            <Link to="/period-opening">Ouvrir l'exercice</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Ventes (CA)" value={fmtUsd(data.salesRevenue)} icon={TrendingUp} tone="gold" />
-        <KpiCard label="Investissements" value={fmtUsd(data.investmentTotal)} icon={Store} hint="Achats dépôt" />
-        <KpiCard label="Dépenses" value={fmtUsd(data.expensesTotal)} icon={Receipt} />
         <KpiCard
-          label="Net boutique"
-          value={fmtUsd(data.netProfit)}
+          label="Caisse disponible"
+          value={fmtUsd(data.cashAvailable)}
           icon={Wallet}
-          tone={data.netProfit >= 0 ? "gold" : "default"}
+          tone={data.cashAvailable > 0 ? "gold" : "default"}
+          hint="Fonds restants cette semaine"
         />
+        <KpiCard label="Ventes (rapport)" value={fmtUsd(data.salesRevenue)} icon={TrendingUp} tone="gold" />
+        <KpiCard label="Approvisionnements" value={fmtUsd(data.investmentTotal)} icon={Store} />
+        <KpiCard label="Transferts" value={fmtUsd(data.transferTotal)} icon={ArrowLeftRight} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <KpiCard label="Stock POS" value={fmtNum(data.posStockQty)} icon={Package} />
+      <div className="grid grid-cols-2 gap-4">
+        <KpiCard label="Dépenses" value={fmtUsd(data.expensesTotal)} icon={Receipt} />
         <KpiCard label="Produits vendus" value={fmtNum(data.productsSold)} icon={TrendingUp} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiCard label="Stock POS" value={fmtNum(data.posStockQty)} icon={Package} />
         <KpiCard label="Stock bas" value={fmtNum(data.lowStock)} icon={TrendingDown} />
         <KpiCard label="Ruptures" value={fmtNum(data.outOfStock)} icon={PackageX} />
         <KpiCard label="Rapports" value={fmtNum(data.reportsCount)} icon={ClipboardList} />
@@ -547,16 +526,16 @@ function ManagerDashboard() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Button asChild variant="outline" className="h-auto justify-start p-3">
-          <Link to="/manager-investment">Approvisionnement</Link>
+          <Link to="/weekly-report">1. Rapport ventes</Link>
         </Button>
         <Button asChild variant="outline" className="h-auto justify-start p-3">
-          <Link to="/weekly-report">Rapport ventes</Link>
+          <Link to="/manager-expenses">2. Dépenses / transfert</Link>
         </Button>
         <Button asChild variant="outline" className="h-auto justify-start p-3">
-          <Link to="/manager-expenses">Dépenses</Link>
+          <Link to="/manager-investment">3. Approvisionnement</Link>
         </Button>
         <Button asChild variant="outline" className="h-auto justify-start p-3">
-          <Link to="/stock-writeoff">Pertes / offert 0 $</Link>
+          <Link to="/stock-writeoff">Pertes / offert</Link>
         </Button>
       </div>
 
@@ -622,24 +601,38 @@ function ManagerDashboard() {
             <div className="rounded-lg border bg-muted/30 p-4">
               <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
                 <AlertTriangle className="h-3.5 w-3.5" />
-                Synthèse
+                Caisse semaine
               </div>
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Stock POS</span>
                   <span className="font-medium">{fmtNum(data.posStockQty)} unités</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Approvisionnements</span>
-                  <span className="font-medium">{fmtUsd(data.investmentTotal)}</span>
-                </div>
+                {data.openingCountsThisWeek && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Fonds ouverture</span>
+                    <span className="font-medium">{fmtUsd(data.openingCa)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ventes</span>
-                  <span className="font-medium">{fmtUsd(data.salesRevenue)}</span>
+                  <span className="font-medium">+{fmtUsd(data.salesRevenue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Dépenses</span>
+                  <span className="font-medium">−{fmtUsd(data.expensesTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Approvisionnements</span>
+                  <span className="font-medium">−{fmtUsd(data.investmentTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transferts</span>
+                  <span className="font-medium">−{fmtUsd(data.transferTotal)}</span>
                 </div>
                 <div className="flex justify-between border-t pt-2">
-                  <span className="text-muted-foreground">Net boutique</span>
-                  <span className="font-semibold">{fmtUsd(data.netProfit)}</span>
+                  <span className="text-muted-foreground">Caisse disponible</span>
+                  <span className="font-semibold">{fmtUsd(data.cashAvailable)}</span>
                 </div>
               </div>
             </div>

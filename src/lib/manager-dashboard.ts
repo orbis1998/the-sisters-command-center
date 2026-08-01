@@ -5,6 +5,7 @@ import {
   reportDate,
   toPeriodRange,
 } from "@/lib/accounting-periods";
+import { loadManagerCash } from "@/lib/manager-cash";
 
 const MONTH_LABELS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
@@ -24,7 +25,13 @@ export type ManagerDashboardData = {
   investmentTotal: number;
   expensesTotal: number;
   salesRevenue: number;
-  netProfit: number;
+  transferTotal: number;
+  openingCa: number;
+  openingCountsThisWeek: boolean;
+  cashAvailable: number;
+  weekStart: string;
+  weekEnd: string;
+  hasPeriodOpening: boolean;
   productsSold: number;
   stockLines: number;
   lowStock: number;
@@ -33,6 +40,7 @@ export type ManagerDashboardData = {
   monthlyPoints: ManagerMonthlyPoint[];
   recentInvestments: { id: string; date: string; total: number; notes: string | null }[];
   recentExpenses: { id: string; date: string; category: string; amount: number }[];
+  recentTransfers: { id: string; date: string; amount: number; notes: string | null }[];
   recentReports: {
     id: string;
     weekStart: string;
@@ -57,6 +65,8 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
     investmentsResult,
     expensesResult,
     reportsResult,
+    transfersResult,
+    cash,
   ] = await Promise.all([
     locationId
       ? supabase.from("locations").select("id, name").eq("id", locationId).maybeSingle()
@@ -76,6 +86,11 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
         "id, week_start_date, week_end_date, products_sold, total_revenue, status, created_at",
       )
       .eq("manager_id", managerId),
+    supabase
+      .from("manager_cash_transfers")
+      .select("id, date, amount, notes")
+      .eq("manager_id", managerId),
+    loadManagerCash(managerId, locationId),
   ]);
 
   const products = productsResult.data ?? [];
@@ -88,6 +103,9 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
   );
   const reports = (reportsResult.data ?? []).filter((row) =>
     period ? dateInPeriod(reportDate(row), period) : true,
+  );
+  const transfers = (transfersResult.data ?? []).filter((row) =>
+    period ? dateInPeriod(String(row.date ?? ""), period) : true,
   );
   const productById = new Map(products.map((p) => [p.id, p] as const));
 
@@ -138,6 +156,16 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
       amount: toNumber(row.amount),
     }));
 
+  const recentTransfers = [...transfers]
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .slice(0, 5)
+    .map((row) => ({
+      id: row.id,
+      date: String(row.date ?? ""),
+      amount: toNumber(row.amount),
+      notes: row.notes ?? null,
+    }));
+
   const recentReports = [...reports]
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
     .slice(0, 5)
@@ -150,21 +178,20 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
       status: row.status || "submitted",
     }));
 
-  const investmentTotal = investments.reduce((sum, row) => sum + toNumber(row.total_amount), 0);
-  const expensesTotal = expenses
-    .filter((row) => row.category !== "stock_purchase" && row.category !== "investment")
-    .reduce((sum, row) => sum + toNumber(row.amount), 0);
-  const salesRevenue = reports.reduce((sum, row) => sum + toNumber(row.total_revenue), 0);
-  const netProfit = salesRevenue - investmentTotal - expensesTotal;
-
   return {
     locationName: locationResult.data?.name || "Non assigné",
     hasLocation: Boolean(locationId),
     posStockQty,
-    investmentTotal,
-    expensesTotal,
-    salesRevenue,
-    netProfit,
+    investmentTotal: cash.investmentTotal,
+    expensesTotal: cash.expensesTotal,
+    salesRevenue: cash.salesRevenue,
+    transferTotal: cash.transferTotal,
+    openingCa: cash.openingCa,
+    openingCountsThisWeek: cash.openingCountsThisWeek,
+    cashAvailable: cash.cashAvailable,
+    weekStart: cash.weekStart,
+    weekEnd: cash.weekEnd,
+    hasPeriodOpening: cash.hasPeriodOpening,
     productsSold: reports.reduce((sum, row) => sum + toNumber(row.products_sold), 0),
     stockLines: stocks.length,
     lowStock,
@@ -175,6 +202,7 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
     recentExpenses: recentExpenses.filter(
       (row) => row.category !== "stock_purchase" && row.category !== "investment",
     ),
+    recentTransfers,
     recentReports,
   } satisfies ManagerDashboardData;
 }

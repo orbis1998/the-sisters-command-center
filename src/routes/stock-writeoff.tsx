@@ -22,20 +22,30 @@ type Product = {
   available: number;
 };
 
-const reasons = [
+const managerReasons = [
   { value: "damage", label: "Abîmé" },
-  { value: "loss", label: "Perte / disparu" },
-  { value: "gift", label: "Offert (0 $)" },
+  { value: "loss", label: "Perte" },
+  { value: "gift", label: "Offert" },
+] as const;
+
+const depotReasons = [
+  { value: "damage", label: "Abîmé" },
+  { value: "loss", label: "Perte" },
 ] as const;
 
 function StockWriteoffPage() {
-  const { role, manager, depotAccount } = useRole();
+  const { role, manager } = useRole();
   const isDepot = role === "depot";
   const isManager = role === "manager";
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState("");
-  const [reason, setReason] = useState<(typeof reasons)[number]["value"]>("damage");
+  const reasons = isDepot ? depotReasons : managerReasons;
+  const [reason, setReason] = useState<"damage" | "loss" | "gift">("damage");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isDepot && reason === "gift") setReason("damage");
+  }, [isDepot, reason]);
 
   const load = async () => {
     if (isDepot) {
@@ -124,7 +134,7 @@ function StockWriteoffPage() {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Sortie enregistrée à 0 $ — stock réduit.");
+        toast.success("Sortie enregistrée");
         form.reset();
         setProductId("");
         await load();
@@ -135,16 +145,13 @@ function StockWriteoffPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <PageHeader
-        title="Pertes · abîmé · offert"
-        description="Aucun montant : 0 $. Réduit uniquement le stock (dépôt ou point de vente)."
-      />
+      <PageHeader title={isDepot ? "Pertes · abîmé" : "Pertes · abîmé · offert"} />
 
-      <SectionCard title="Signaler une sortie à 0 $">
+      <SectionCard title="Signaler une sortie">
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <Label>Motif</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${isDepot ? "grid-cols-2" : "grid-cols-3"}`}>
               {reasons.map((r) => (
                 <button
                   key={r.value}
@@ -173,17 +180,14 @@ function StockWriteoffPage() {
               <option value="">Choisir</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} · stock {fmtNum(p.available)}
+                  {p.name}
                 </option>
               ))}
             </select>
           </div>
 
           {selected && (
-            <div className="rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
-              Disponible : <span className="font-semibold">{fmtNum(selected.available)}</span> · Montant :{" "}
-              <span className="font-semibold">0 $</span>
-            </div>
+            <div className="text-sm text-muted-foreground">Disponible : {fmtNum(selected.available)}</div>
           )}
 
           <div className="space-y-2">
@@ -192,12 +196,12 @@ function StockWriteoffPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Commentaire (optionnel)</Label>
-            <Textarea id="notes" name="notes" placeholder="Ex. produit offert à une cliente VIP" />
+            <Label htmlFor="notes">Commentaire</Label>
+            <Textarea id="notes" name="notes" />
           </div>
 
           <Button type="submit" disabled={saving}>
-            {saving ? "Enregistrement..." : "Enregistrer la sortie 0 $"}
+            {saving ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </form>
       </SectionCard>

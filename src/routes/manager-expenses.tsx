@@ -15,6 +15,7 @@ import {
   loadCeoPersonalExpenses,
   type CeoPersonalExpense,
 } from "@/lib/extended-expenses";
+import { loadManagerCash } from "@/lib/manager-cash";
 import { supabase } from "@/lib/supabase-client";
 import { fmtUsd } from "@/lib/format";
 
@@ -30,6 +31,13 @@ type Expense = {
   description: string | null;
 };
 
+type Transfer = {
+  id: string;
+  date: string;
+  amount: number;
+  notes: string | null;
+};
+
 function ManagerExpensesPage() {
   const { role, manager } = useRole();
   const [activeCategory, setActiveCategory] = useState<string>(monthlyExpenseCategories[0].value);
@@ -37,20 +45,35 @@ function ManagerExpensesPage() {
   const [saving, setSaving] = useState(false);
   const [recent, setRecent] = useState<Expense[]>([]);
   const [ceoRecent, setCeoRecent] = useState<CeoPersonalExpense[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [cashAvailable, setCashAvailable] = useState<number | null>(null);
 
   const load = async () => {
     if (!manager?.id) return;
-    const [{ data }, ceoRows] = await Promise.all([
-      supabase
-        .from("global_expenses")
-        .select("id, date, category, amount, description")
-        .eq("recorded_by", manager.id)
-        .order("date", { ascending: false })
-        .limit(20),
-      loadCeoPersonalExpenses(100),
-    ]);
-    setRecent((data || []) as Expense[]);
-    setCeoRecent(ceoRows.filter((r) => r.owner === activeCeoOwner).slice(0, 20));
+    try {
+      const [{ data }, ceoRows, cash, { data: transferRows }] = await Promise.all([
+        supabase
+          .from("global_expenses")
+          .select("id, date, category, amount, description")
+          .eq("recorded_by", manager.id)
+          .order("date", { ascending: false })
+          .limit(20),
+        loadCeoPersonalExpenses(100),
+        loadManagerCash(manager.id, manager.location_id),
+        supabase
+          .from("manager_cash_transfers")
+          .select("id, date, amount, notes")
+          .eq("manager_id", manager.id)
+          .order("date", { ascending: false })
+          .limit(20),
+      ]);
+      setRecent((data || []) as Expense[]);
+      setCeoRecent(ceoRows.filter((r) => r.owner === activeCeoOwner).slice(0, 20));
+      setCashAvailable(cash.cashAvailable);
+      setTransfers((transferRows || []) as Transfer[]);
+    } catch {
+      setCashAvailable(0);
+    }
   };
 
   useEffect(() => {
@@ -73,26 +96,97 @@ function ManagerExpensesPage() {
       toast.error("Date et montant requis.");
       return;
     }
+    if (!manager?.id) {
+      toast.error("Manager non connecté.");
+      return;
+    }
 
     setSaving(true);
     void (async () => {
-      const { error } = await supabase.from("global_expenses").insert({
-        date,
-        category: activeCategory,
-        amount,
-        description: description || null,
-        recorded_by: manager?.id ?? null,
-        location_id: manager?.location_id ?? null,
-      });
+      try {
+        const cash = await loadManagerCash(manager.id, manager.location_id);
+        setCashAvailable(cash.cashAvailable);
+        if (amount > cash.cashAvailable + 0.001) {
+          toast.error(
+            `Fonds insuffisants (disponible: ${fmtUsd(cash.cashAvailable)}). Enregistrez d'abord vos ventes.`,
+          );
+          return;
+        }
 
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Dépense enregistrée");
-        form.reset();
-        await load();
+        const { error } = await supabase.from("global_expenses").insert({
+          date,
+          category: activeCategory,
+          amount,
+          description: description || null,
+          recorded_by: manager.id,
+          location_id: manager.location_id ?? null,
+        });
+
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success("Dépense enregistrée");
+          form.reset();
+          await load();
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Impossible d'enregistrer");
+      } finally {
+        setSaving(false);
       }
-      setSaving(false);
+    })();
+  };
+
+  const handleTransferSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!manager?.id) {
+      toast.error("Manager non connecté.");
+      return;
+    }
+
+    const form = e.currentTarget as HTMLFormElement;
+    const fd = new FormData(form);
+    const date = String(fd.get("date") || new Date().toISOString().slice(0, 10));
+    const amount = Number(fd.get("amount") || 0);
+    const notes = String(fd.get("notes") || "").trim();
+
+    if (amount <= 0) {
+      toast.error("Montant invalide.");
+      return;
+    }
+
+    setSaving(true);
+    void (async () => {
+      try {
+        const cash = await loadManagerCash(manager.id, manager.location_id);
+        setCashAvailable(cash.cashAvailable);
+        if (amount > cash.cashAvailable + 0.001) {
+          toast.error(
+            `Fonds insuffisants (disponible: ${fmtUsd(cash.cashAvailable)}). Enregistrez d'abord vos ventes.`,
+          );
+          return;
+        }
+
+        const { error } = await supabase.from("manager_cash_transfers").insert({
+          manager_id: manager.id,
+          location_id: manager.location_id,
+          date,
+          amount,
+          notes: notes || "Remise / transfert siège",
+        });
+
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success("Transfert enregistré — caisse diminuée");
+          form.reset();
+          await load();
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Impossible d'enregistrer");
+      } finally {
+        setSaving(false);
+      }
     })();
   };
 
@@ -133,12 +227,13 @@ function ManagerExpensesPage() {
   const label = monthlyExpenseCategories.find((c) => c.value === activeCategory)?.label || activeCategory;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <PageHeader title="Dépenses" description="Dépenses du point de vente et dépenses personnelles des CEO." />
+    <div className="mx-auto max-w-4xl space-y-6">
+      <PageHeader title="Dépenses" />
 
       <Tabs defaultValue="pos" className="space-y-4">
         <TabsList className="bg-muted">
           <TabsTrigger value="pos">Point de vente</TabsTrigger>
+          <TabsTrigger value="transfer">Transfert / remise</TabsTrigger>
           <TabsTrigger value="ceo">Personnelles CEO</TabsTrigger>
         </TabsList>
 
@@ -165,7 +260,13 @@ function ManagerExpensesPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="date">Date</Label>
-                  <Input id="date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+                  <Input
+                    id="date"
+                    name="date"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amount">Montant</Label>
@@ -191,14 +292,95 @@ function ManagerExpensesPage() {
                   <div key={row.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
                     <div>
                       <div className="font-medium">
-                        {monthlyExpenseCategories.find((c) => c.value === row.category)?.label || row.category}
+                        {monthlyExpenseCategories.find((c) => c.value === row.category)?.label ||
+                          row.category}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {row.date}
                         {row.description ? ` · ${row.description}` : ""}
                       </div>
                     </div>
-                    <div className="font-semibold">{fmtUsd(Number(row.amount))}</div>
+                    <div className="font-semibold">−{fmtUsd(Number(row.amount))}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="transfer" className="space-y-4">
+          <SectionCard title="Transfert / remise">
+            <form className="space-y-4" onSubmit={handleTransferSubmit}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="transfer_date">Date</Label>
+                  <Input
+                    id="transfer_date"
+                    name="date"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="transfer_amount">Montant</Label>
+                  <Input
+                    key={cashAvailable ?? "na"}
+                    id="transfer_amount"
+                    name="amount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    defaultValue={
+                      cashAvailable && cashAvailable > 0
+                        ? String(Math.round(cashAvailable * 100) / 100)
+                        : ""
+                    }
+                    required
+                  />
+                  {cashAvailable !== null && cashAvailable > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="px-0"
+                      onClick={() => {
+                        const el = document.getElementById(
+                          "transfer_amount",
+                        ) as HTMLInputElement | null;
+                        if (el) el.value = String(Math.round(cashAvailable * 100) / 100);
+                      }}
+                    >
+                      Remettre tout ({fmtUsd(cashAvailable)})
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="transfer_notes">Notes</Label>
+                <Textarea id="transfer_notes" name="notes" rows={2} placeholder="Remise siège…" />
+              </div>
+              <Button type="submit" disabled={saving || (cashAvailable !== null && cashAvailable <= 0)}>
+                {saving ? "Enregistrement..." : "Enregistrer le transfert"}
+              </Button>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Historique transferts">
+            <div className="space-y-2">
+              {transfers.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Aucun transfert.</p>
+              ) : (
+                transfers.map((row) => (
+                  <div key={row.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                    <div>
+                      <div className="font-medium">Transfert / remise</div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.date}
+                        {row.notes ? ` · ${row.notes}` : ""}
+                      </div>
+                    </div>
+                    <div className="font-semibold">−{fmtUsd(row.amount)}</div>
                   </div>
                 ))
               )}
@@ -226,11 +408,21 @@ function ManagerExpensesPage() {
             <form className="mb-6 grid gap-4 md:grid-cols-2" onSubmit={handleCeoSubmit}>
               <div className="space-y-2 md:col-span-2">
                 <Label>Auteur</Label>
-                <Input value={activeCeoOwner === "axelle" ? "Axelle" : "Allexe"} readOnly className="bg-muted/40" />
+                <Input
+                  value={activeCeoOwner === "axelle" ? "Axelle" : "Allexe"}
+                  readOnly
+                  className="bg-muted/40"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ceo_date">Date</Label>
-                <Input id="ceo_date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+                <Input
+                  id="ceo_date"
+                  name="date"
+                  type="date"
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ceo_amount">Montant</Label>
@@ -246,14 +438,18 @@ function ManagerExpensesPage() {
               </div>
               <div className="md:col-span-2">
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Enregistrement..." : `Ajouter pour ${activeCeoOwner === "axelle" ? "Axelle" : "Allexe"}`}
+                  {saving
+                    ? "Enregistrement..."
+                    : `Ajouter pour ${activeCeoOwner === "axelle" ? "Axelle" : "Allexe"}`}
                 </Button>
               </div>
             </form>
 
             <div className="space-y-2">
               {ceoRecent.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">Aucun historique pour cette personne.</p>
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Aucun historique pour cette personne.
+                </p>
               ) : (
                 ceoRecent.map((row) => (
                   <div key={row.id} className="rounded-md border p-3 text-sm">

@@ -18,6 +18,8 @@ import {
   type AccountingPeriod,
   type PeriodSnapshot,
 } from "@/lib/accounting-periods";
+import { loadOpeningsForOpenPeriod } from "@/lib/pos-openings";
+import { supabase } from "@/lib/supabase-client";
 
 export const Route = createFileRoute("/accounting-periods")({
   component: AccountingPeriodsPage,
@@ -27,6 +29,9 @@ function AccountingPeriodsPage() {
   const { isCEO } = useRole();
   const [periods, setPeriods] = useState<AccountingPeriod[]>([]);
   const [snapshots, setSnapshots] = useState<PeriodSnapshot[]>([]);
+  const [openingRows, setOpeningRows] = useState<
+    { location: string; manager: string; opening_ca: number; created_at: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
@@ -37,6 +42,21 @@ function AccountingPeriodsPage() {
     const rows = await loadAccountingPeriods();
     const closedIds = rows.filter((p) => p.status === "closed").map((p) => p.id);
     const snaps = await loadPeriodSnapshots(closedIds);
+    const { openings } = await loadOpeningsForOpenPeriod();
+    const [{ data: locations }, { data: managers }] = await Promise.all([
+      supabase.from("locations").select("id, name"),
+      supabase.from("erp_managers").select("id, name"),
+    ]);
+    const locById = new Map((locations || []).map((l) => [l.id, l.name]));
+    const mgrById = new Map((managers || []).map((m) => [m.id, m.name]));
+    setOpeningRows(
+      openings.map((o) => ({
+        location: locById.get(o.location_id) || "POS",
+        manager: mgrById.get(o.manager_id) || "Manager",
+        opening_ca: o.opening_ca,
+        created_at: o.created_at,
+      })),
+    );
     setPeriods(rows);
     setSnapshots(snaps);
     setLoading(false);
@@ -143,6 +163,28 @@ function AccountingPeriodsPage() {
           <p className="text-sm text-muted-foreground">Aucun exercice ouvert.</p>
         </SectionCard>
       )}
+
+      <SectionCard title="Ouvertures POS (exercice actuel)">
+        {openingRows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Aucune ouverture saisie pour le moment.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {openingRows.map((row, idx) => (
+              <div key={`${row.location}-${idx}`} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                <div>
+                  <div className="font-medium">{row.location}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {row.manager} · {String(row.created_at).slice(0, 10)}
+                  </div>
+                </div>
+                <div className="font-semibold">{fmtUsd(row.opening_ca)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
 
       <SectionCard title="Historique des exercices">
         {periods.length === 0 ? (

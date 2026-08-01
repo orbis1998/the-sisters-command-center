@@ -8,6 +8,7 @@ import {
   type PeriodRange,
 } from "@/lib/accounting-periods";
 import { loadCeoPersonalExpenses, loadDepotExpenses } from "@/lib/extended-expenses";
+import { loadOpeningsForOpenPeriod } from "@/lib/pos-openings";
 
 export type MonthlyPoint = {
   month: string;
@@ -47,6 +48,8 @@ export type ExecutiveDashboardData = {
   posStockQty: number;
   depotRevenue: number;
   salesRevenue: number;
+  /** Remises caisse POS (info — déjà incluses dans les ventes déclarées). */
+  posTransfers: number;
   avgMarginPct: number;
   operatingExpenses: number;
   revenue: number;
@@ -92,6 +95,7 @@ export async function loadExecutiveDashboard() {
     managersResult,
     ceoPersonal,
     depotExpenseRows,
+    transfersResult,
   ] = await Promise.all([
     supabase.from("erp_products").select("id, name, sku, unit_purchase_price, selling_price, global_qty, min_stock"),
     supabase.from("inventory_stock").select("erp_product_id, location_id, quantity"),
@@ -106,6 +110,7 @@ export async function loadExecutiveDashboard() {
     supabase.from("erp_managers").select("id, name, location_id, is_active"),
     loadCeoPersonalExpenses(500),
     loadDepotExpenses(500),
+    supabase.from("manager_cash_transfers").select("date, amount"),
   ]);
 
   const products = productsResult.data ?? [];
@@ -139,6 +144,11 @@ export async function loadExecutiveDashboard() {
   const scopedDepotExpenses = period
     ? depotExpenseRows.filter((e) => dateInPeriod(e.date, period))
     : depotExpenseRows;
+  const transfers = transfersResult.data ?? [];
+  const scopedTransfers = period
+    ? transfers.filter((t) => dateInPeriod(String(t.date ?? ""), period))
+    : transfers;
+  const posTransfers = scopedTransfers.reduce((sum, t) => sum + toNumber(t.amount), 0);
 
   const globalStockQty = products.reduce((sum, p) => sum + toNumber(p.global_qty), 0);
   const posStockQty = stocks.reduce((sum, s) => sum + toNumber(s.quantity), 0);
@@ -159,8 +169,12 @@ export async function loadExecutiveDashboard() {
   const depotExpenseTotal = scopedDepotExpenses.reduce((sum, row) => sum + row.amount, 0);
   const operatingExpenses = posOperating + ceoPersonalTotal + depotExpenseTotal;
 
+  const { openings } = await loadOpeningsForOpenPeriod();
+  const openingCaTotal = openings.reduce((sum, row) => sum + row.opening_ca, 0);
+
   const depotRevenue = scopedDepotReceipts.reduce((sum, r) => sum + toNumber(r.amount), 0);
-  const salesRevenue = scopedReports.reduce((sum, r) => sum + toNumber(r.total_revenue), 0);
+  const salesRevenue =
+    scopedReports.reduce((sum, r) => sum + toNumber(r.total_revenue), 0) + openingCaTotal;
   const revenue = depotRevenue + salesRevenue;
   const profit = revenue - operatingExpenses;
 
@@ -272,6 +286,7 @@ export async function loadExecutiveDashboard() {
     posStockQty,
     depotRevenue,
     salesRevenue,
+    posTransfers,
     avgMarginPct,
     operatingExpenses,
     revenue,
