@@ -237,9 +237,17 @@ function WeeklyReportPage() {
             </table>
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Revenu détail = qté × prix admin. Gros = montant saisi. Total calculé automatiquement.
-          </p>
+          <div className="rounded-lg border bg-muted/20 p-4 text-sm">
+            <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">
+              Aide à la saisie
+            </div>
+            <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+              <li>Chaque produit rempli apparaît ligne par ligne dans le rapport CEO.</li>
+              <li>Revenu détail = quantité × prix unitaire admin.</li>
+              <li>Gros = montant total saisi (pas la quantité).</li>
+              <li>Les dépenses POS de la semaine sont rattachées automatiquement au détail CEO.</li>
+            </ul>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="observations">Observations</Label>

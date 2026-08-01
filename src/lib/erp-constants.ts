@@ -9,6 +9,33 @@ export const monthlyExpenseCategories = [
   { value: "unexpected", label: "Imprévu" },
 ] as const;
 
+export const ceoPersonalOwners = [
+  { value: "axelle", label: "Axelle", code: "A X E L L E" },
+  { value: "allexe", label: "Allexe", code: "A L L E X E" },
+] as const;
+
+export type CeoPersonalOwner = (typeof ceoPersonalOwners)[number]["value"];
+
+export const depotExpenseObjects = [
+  { value: "transport", label: "Transport" },
+  { value: "salaires", label: "Salaires du personnel du dépôt" },
+  { value: "materiel", label: "Achat de matériel" },
+  { value: "entretien", label: "Entretien" },
+  { value: "nettoyage", label: "Nettoyage" },
+  { value: "reparation", label: "Réparation" },
+  { value: "consommables", label: "Consommables" },
+  { value: "autres", label: "Autres" },
+] as const;
+
+export function depotObjectLabel(value: string) {
+  return depotExpenseObjects.find((o) => o.value === value)?.label || value;
+}
+
+export function expenseCategoryLabel(value: string) {
+  return monthlyExpenseCategories.find((c) => c.value === value)?.label
+    || (value === "stock_purchase" ? "Achat du stock" : value === "investment" ? "Investissement" : value);
+}
+
 /** @deprecated use monthlyExpenseCategories */
 export const managerExpenseCategories = [
   ...monthlyExpenseCategories,

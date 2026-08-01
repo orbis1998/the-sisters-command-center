@@ -6,6 +6,8 @@ export type AccountingSummary = {
   salesRevenue: number;
   totalRevenue: number;
   operatingExpenses: number;
+  ceoPersonalExpenses: number;
+  depotOperatingExpenses: number;
   profit: number;
   globalStockQty: number;
   posStockQty: number;
@@ -35,23 +37,34 @@ export async function loadAccountingSummary(): Promise<AccountingSummary> {
     { data: expenseRows },
     { data: products },
     { data: posStock },
+    { data: ceoRows },
+    { data: depotExpenseRows },
   ] = await Promise.all([
     supabase.from("depot_receipts").select("amount, date"),
     supabase.from("manager_reports").select("total_revenue, week_start_date, week_end_date, created_at"),
     supabase.from("global_expenses").select("amount, category, date"),
     supabase.from("erp_products").select("global_qty"),
     supabase.from("inventory_stock").select("quantity"),
+    supabase.from("ceo_personal_expenses").select("amount, date"),
+    supabase.from("depot_expenses").select("amount, date"),
   ]);
 
   const scopedDepot = (depotRows || []).filter((r) => (period ? dateInPeriod(String(r.date ?? ""), period) : true));
   const scopedReports = (reportRows || []).filter((r) => (period ? dateInPeriod(reportDate(r), period) : true));
   const scopedExpenses = (expenseRows || []).filter((e) => (period ? dateInPeriod(String(e.date ?? ""), period) : true));
+  const scopedCeo = (ceoRows || []).filter((e) => (period ? dateInPeriod(String(e.date ?? ""), period) : true));
+  const scopedDepotExp = (depotExpenseRows || []).filter((e) =>
+    period ? dateInPeriod(String(e.date ?? ""), period) : true,
+  );
 
   const depotRevenue = scopedDepot.reduce((s, r) => s + toNumber(r.amount), 0);
   const salesRevenue = scopedReports.reduce((s, r) => s + toNumber(r.total_revenue), 0);
-  const operatingExpenses = scopedExpenses
+  const posOperating = scopedExpenses
     .filter((e) => isOperatingExpense(String(e.category)))
     .reduce((s, e) => s + toNumber(e.amount), 0);
+  const ceoPersonalExpenses = scopedCeo.reduce((s, e) => s + toNumber(e.amount), 0);
+  const depotOperatingExpenses = scopedDepotExp.reduce((s, e) => s + toNumber(e.amount), 0);
+  const operatingExpenses = posOperating + ceoPersonalExpenses + depotOperatingExpenses;
 
   const globalStockQty = (products || []).reduce((s, p) => s + toNumber(p.global_qty), 0);
   const posStockQty = (posStock || []).reduce((s, r) => s + toNumber(r.quantity), 0);
@@ -63,6 +76,8 @@ export async function loadAccountingSummary(): Promise<AccountingSummary> {
     salesRevenue,
     totalRevenue,
     operatingExpenses,
+    ceoPersonalExpenses,
+    depotOperatingExpenses,
     profit,
     globalStockQty,
     posStockQty,

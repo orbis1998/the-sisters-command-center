@@ -7,6 +7,7 @@ import {
   toPeriodRange,
   type PeriodRange,
 } from "@/lib/accounting-periods";
+import { loadCeoPersonalExpenses, loadDepotExpenses } from "@/lib/extended-expenses";
 
 export type MonthlyPoint = {
   month: string;
@@ -89,6 +90,8 @@ export async function loadExecutiveDashboard() {
     depotReceiptsResult,
     locationsResult,
     managersResult,
+    ceoPersonal,
+    depotExpenseRows,
   ] = await Promise.all([
     supabase.from("erp_products").select("id, name, sku, unit_purchase_price, selling_price, global_qty, min_stock"),
     supabase.from("inventory_stock").select("erp_product_id, location_id, quantity"),
@@ -101,6 +104,8 @@ export async function loadExecutiveDashboard() {
     supabase.from("depot_receipts").select("id, date, amount"),
     supabase.from("locations").select("id, name").neq("name", "DEPOT GLOBAL"),
     supabase.from("erp_managers").select("id, name, location_id, is_active"),
+    loadCeoPersonalExpenses(500),
+    loadDepotExpenses(500),
   ]);
 
   const products = productsResult.data ?? [];
@@ -123,6 +128,12 @@ export async function loadExecutiveDashboard() {
   const scopedReports = period
     ? reports.filter((r) => dateInPeriod(reportDate(r), period))
     : reports;
+  const scopedCeo = period
+    ? ceoPersonal.filter((e) => dateInPeriod(e.date, period))
+    : ceoPersonal;
+  const scopedDepotExpenses = period
+    ? depotExpenseRows.filter((e) => dateInPeriod(e.date, period))
+    : depotExpenseRows;
 
   const globalStockQty = products.reduce((sum, p) => sum + toNumber(p.global_qty), 0);
   const posStockQty = stocks.reduce((sum, s) => sum + toNumber(s.quantity), 0);
@@ -136,9 +147,12 @@ export async function loadExecutiveDashboard() {
       }, 0) / products.length
     : 0;
 
-  const operatingExpenses = scopedExpenses
+  const posOperating = scopedExpenses
     .filter((e) => isOperatingExpense(String(e.category)))
     .reduce((sum, row) => sum + toNumber(row.amount), 0);
+  const ceoPersonalTotal = scopedCeo.reduce((sum, row) => sum + row.amount, 0);
+  const depotExpenseTotal = scopedDepotExpenses.reduce((sum, row) => sum + row.amount, 0);
+  const operatingExpenses = posOperating + ceoPersonalTotal + depotExpenseTotal;
 
   const depotRevenue = scopedDepotReceipts.reduce((sum, r) => sum + toNumber(r.amount), 0);
   const salesRevenue = scopedReports.reduce((sum, r) => sum + toNumber(r.total_revenue), 0);
@@ -188,6 +202,28 @@ export async function loadExecutiveDashboard() {
     const yearly = annualMap.get(year) ?? { year, revenue: 0, expenses: 0, profit: 0 };
     yearly.expenses += amount;
     yearly.profit -= amount;
+    annualMap.set(year, yearly);
+  });
+
+  scopedCeo.forEach((expense) => {
+    const month = monthKey(expense.date);
+    const year = yearKey(expense.date);
+    monthlyMap[month].expenses += expense.amount;
+    monthlyMap[month].profit -= expense.amount;
+    const yearly = annualMap.get(year) ?? { year, revenue: 0, expenses: 0, profit: 0 };
+    yearly.expenses += expense.amount;
+    yearly.profit -= expense.amount;
+    annualMap.set(year, yearly);
+  });
+
+  scopedDepotExpenses.forEach((expense) => {
+    const month = monthKey(expense.date);
+    const year = yearKey(expense.date);
+    monthlyMap[month].expenses += expense.amount;
+    monthlyMap[month].profit -= expense.amount;
+    const yearly = annualMap.get(year) ?? { year, revenue: 0, expenses: 0, profit: 0 };
+    yearly.expenses += expense.amount;
+    yearly.profit -= expense.amount;
     annualMap.set(year, yearly);
   });
 
