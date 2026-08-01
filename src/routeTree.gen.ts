@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountingPeriodsRouteImport } from './routes/accounting-periods'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as DepotExpensesRouteImport } from './routes/depot-expenses'
+import { Route as DepotRestocksRouteImport } from './routes/depot-restocks'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as InvestmentsRouteImport } from './routes/investments'
@@ -46,6 +48,16 @@ const ActivityRoute = ActivityRouteImport.update({
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DepotExpensesRoute = DepotExpensesRouteImport.update({
+  id: '/depot-expenses',
+  path: '/depot-expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DepotRestocksRoute = DepotRestocksRouteImport.update({
+  id: '/depot-restocks',
+  path: '/depot-restocks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpensesRoute = ExpensesRouteImport.update({
@@ -124,6 +136,8 @@ export interface FileRoutesByFullPath {
   '/accounting-periods': typeof AccountingPeriodsRoute
   '/activity': typeof ActivityRoute
   '/analytics': typeof AnalyticsRoute
+  '/depot-expenses': typeof DepotExpensesRoute
+  '/depot-restocks': typeof DepotRestocksRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/investments': typeof InvestmentsRoute
@@ -144,6 +158,8 @@ export interface FileRoutesByTo {
   '/accounting-periods': typeof AccountingPeriodsRoute
   '/activity': typeof ActivityRoute
   '/analytics': typeof AnalyticsRoute
+  '/depot-expenses': typeof DepotExpensesRoute
+  '/depot-restocks': typeof DepotRestocksRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/investments': typeof InvestmentsRoute
@@ -165,6 +181,8 @@ export interface FileRoutesById {
   '/accounting-periods': typeof AccountingPeriodsRoute
   '/activity': typeof ActivityRoute
   '/analytics': typeof AnalyticsRoute
+  '/depot-expenses': typeof DepotExpensesRoute
+  '/depot-restocks': typeof DepotRestocksRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/investments': typeof InvestmentsRoute
@@ -187,6 +205,8 @@ export interface FileRouteTypes {
     | '/accounting-periods'
     | '/activity'
     | '/analytics'
+    | '/depot-expenses'
+    | '/depot-restocks'
     | '/expenses'
     | '/inventory'
     | '/investments'
@@ -207,6 +227,8 @@ export interface FileRouteTypes {
     | '/accounting-periods'
     | '/activity'
     | '/analytics'
+    | '/depot-expenses'
+    | '/depot-restocks'
     | '/expenses'
     | '/inventory'
     | '/investments'
@@ -227,6 +249,8 @@ export interface FileRouteTypes {
     | '/accounting-periods'
     | '/activity'
     | '/analytics'
+    | '/depot-expenses'
+    | '/depot-restocks'
     | '/expenses'
     | '/inventory'
     | '/investments'
@@ -248,6 +272,8 @@ export interface RootRouteChildren {
   AccountingPeriodsRoute: typeof AccountingPeriodsRoute
   ActivityRoute: typeof ActivityRoute
   AnalyticsRoute: typeof AnalyticsRoute
+  DepotExpensesRoute: typeof DepotExpensesRoute
+  DepotRestocksRoute: typeof DepotRestocksRoute
   ExpensesRoute: typeof ExpensesRoute
   InventoryRoute: typeof InventoryRoute
   InvestmentsRoute: typeof InvestmentsRoute
@@ -292,6 +318,20 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/depot-expenses': {
+      id: '/depot-expenses'
+      path: '/depot-expenses'
+      fullPath: '/depot-expenses'
+      preLoaderRoute: typeof DepotExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/depot-restocks': {
+      id: '/depot-restocks'
+      path: '/depot-restocks'
+      fullPath: '/depot-restocks'
+      preLoaderRoute: typeof DepotRestocksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expenses': {
@@ -400,6 +440,8 @@ const rootRouteChildren: RootRouteChildren = {
   AccountingPeriodsRoute: AccountingPeriodsRoute,
   ActivityRoute: ActivityRoute,
   AnalyticsRoute: AnalyticsRoute,
+  DepotExpensesRoute: DepotExpensesRoute,
+  DepotRestocksRoute: DepotRestocksRoute,
   ExpensesRoute: ExpensesRoute,
   InventoryRoute: InventoryRoute,
   InvestmentsRoute: InvestmentsRoute,

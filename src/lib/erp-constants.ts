@@ -16,9 +16,18 @@ export const ceoPersonalOwners = [
 
 export type CeoPersonalOwner = (typeof ceoPersonalOwners)[number]["value"];
 
+/** Charges dépôt = catégories POS + flux spécifiques dépôt */
 export const depotExpenseObjects = [
-  { value: "transport", label: "Transport" },
-  { value: "salaires", label: "Salaires du personnel du dépôt" },
+  { value: "salary", label: "Salaire" },
+  { value: "rent", label: "Loyer" },
+  { value: "marketing", label: "Marketing" },
+  { value: "subscription", label: "Abonnement" },
+  { value: "transport_taxi", label: "Transport / Taxi" },
+  { value: "shipping", label: "Expédition" },
+  { value: "taxes", label: "Impôts" },
+  { value: "unexpected", label: "Imprévu" },
+  { value: "salaires_depot", label: "Salaires du personnel du dépôt" },
+  { value: "appro_depot", label: "Approvisionnement du dépôt" },
   { value: "materiel", label: "Achat de matériel" },
   { value: "entretien", label: "Entretien" },
   { value: "nettoyage", label: "Nettoyage" },

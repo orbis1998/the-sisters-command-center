@@ -14,6 +14,7 @@ import {
   ArrowLeftRight,
   Store,
   CalendarRange,
+  Warehouse,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,7 +34,7 @@ import { loadOpenAccountingPeriod } from "@/lib/accounting-periods";
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isCEO } = useRole();
+  const { isCEO, isDepot } = useRole();
   const [periodLabel, setPeriodLabel] = useState("—");
 
   useEffect(() => {
@@ -85,13 +86,26 @@ export function AppSidebar() {
         { title: "Tableau de bord", url: "/", icon: LayoutDashboard },
         { title: "Mon stock", url: "/manager-stock", icon: Boxes },
         { title: "Approvisionnement", url: "/manager-investment", icon: ShoppingCart },
-        { title: "Dépenses mensuelles", url: "/manager-expenses", icon: Receipt },
+        { title: "Dépenses", url: "/manager-expenses", icon: Receipt },
         { title: "Rapport hebdomadaire", url: "/weekly-report", icon: ClipboardList },
       ],
     },
   ];
 
-  const groups = isCEO ? ceoGroups : managerGroups;
+  const depotGroups = [
+    {
+      label: "Dépôt",
+      items: [
+        { title: "Tableau de bord", url: "/", icon: LayoutDashboard },
+        { title: "Approvisionnement", url: "/depot-restocks", icon: Truck },
+        { title: "Dépenses", url: "/depot-expenses", icon: Receipt },
+        { title: "Rapport hebdomadaire", url: "/weekly-report", icon: ClipboardList },
+        { title: "Stock global", url: "/inventory", icon: Warehouse },
+      ],
+    },
+  ];
+
+  const groups = isCEO ? ceoGroups : isDepot ? depotGroups : managerGroups;
 
   return (
     <Sidebar collapsible="icon">

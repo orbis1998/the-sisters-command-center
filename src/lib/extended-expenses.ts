@@ -72,7 +72,7 @@ export async function createCeoPersonalExpense(input: {
   amount: number;
   description: string;
   comment?: string;
-  recordedBy?: string | null;
+  recordedByManagerId?: string | null;
 }) {
   const { error } = await supabase.from("ceo_personal_expenses").insert({
     owner: input.owner,
@@ -80,7 +80,7 @@ export async function createCeoPersonalExpense(input: {
     amount: input.amount,
     description: input.description,
     comment: input.comment || null,
-    recorded_by: input.recordedBy || null,
+    recorded_by_manager_id: input.recordedByManagerId || null,
   });
   if (error) throw error;
 }
@@ -91,7 +91,7 @@ export async function createDepotExpense(input: {
   description: string;
   amount: number;
   responsible?: string;
-  createdBy?: string | null;
+  recordedByDepotId?: string | null;
 }) {
   const { error } = await supabase.from("depot_expenses").insert({
     date: input.date,
@@ -99,7 +99,7 @@ export async function createDepotExpense(input: {
     description: input.description,
     amount: input.amount,
     responsible: input.responsible || null,
-    created_by: input.createdBy || null,
+    recorded_by_depot_id: input.recordedByDepotId || null,
   });
   if (error) throw error;
 }

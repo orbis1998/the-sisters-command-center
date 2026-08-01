@@ -15,10 +15,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function TopBar() {
-  const { role, user, signOut } = useRole();
-  
-  const userInitials = user?.email?.substring(0, 2).toUpperCase() || "TS";
-  const userLabel = role === "ceo" ? "CEO" : "Manager";
+  const { role, user, manager, depotAccount, signOut } = useRole();
+
+  const userInitials =
+    role === "ceo"
+      ? user?.email?.substring(0, 2).toUpperCase() || "TS"
+      : role === "depot"
+        ? "DP"
+        : manager?.name?.substring(0, 2).toUpperCase() || "MG";
+  const userLabel = role === "ceo" ? "CEO" : role === "depot" ? "Dépôt" : "Manager";
+  const displayName =
+    role === "ceo" ? user?.email : role === "depot" ? depotAccount?.name || "Dépôt" : manager?.name || "Manager";
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-md">
@@ -51,7 +58,7 @@ export function TopBar() {
                 </AvatarFallback>
               </Avatar>
               <div className="hidden text-left leading-tight sm:block">
-                <div className="text-xs font-medium truncate max-w-[120px]">{user?.email}</div>
+                <div className="text-xs font-medium truncate max-w-[120px]">{displayName}</div>
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{userLabel}</div>
               </div>
             </Button>

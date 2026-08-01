@@ -47,9 +47,74 @@ type RecentDepotReceipt = {
 };
 
 function Dashboard() {
-  const { isCEO, role } = useRole();
-  if (!isCEO && role !== "loading") return <ManagerDashboard />;
-  return <CEODashboard />;
+  const { isCEO, isDepot, role } = useRole();
+  if (role === "loading") {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Chargement...
+      </div>
+    );
+  }
+  if (isCEO) return <CEODashboard />;
+  if (isDepot) return <DepotDashboard />;
+  return <ManagerDashboard />;
+}
+
+function DepotDashboard() {
+  const { depotAccount } = useRole();
+  const [stats, setStats] = useState({ totalQty: 0, low: 0, out: 0, products: 0, expenses: 0 });
+
+  useEffect(() => {
+    void (async () => {
+      const [{ data: products }, { data: expenses }] = await Promise.all([
+        supabase.from("erp_products").select("global_qty, min_stock"),
+        supabase.from("depot_expenses").select("amount").limit(500),
+      ]);
+      const rows = products || [];
+      setStats({
+        totalQty: rows.reduce((s, p) => s + Number(p.global_qty || 0), 0),
+        low: rows.filter((p) => Number(p.global_qty) > 0 && Number(p.global_qty) <= Number(p.min_stock || 0)).length,
+        out: rows.filter((p) => Number(p.global_qty) <= 0).length,
+        products: rows.length,
+        expenses: (expenses || []).reduce((s, e) => s + Number(e.amount || 0), 0),
+      });
+    })();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={depotAccount?.name || "Dépôt"}
+        description="Saisie des approvisionnements, dépenses et rapport hebdomadaire"
+      />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Stock global" value={fmtNum(stats.totalQty)} icon={Package} tone="gold" />
+        <KpiCard label="Produits" value={fmtNum(stats.products)} icon={Store} />
+        <KpiCard label="Stock bas" value={fmtNum(stats.low)} icon={TrendingDown} />
+        <KpiCard label="Dépenses dépôt" value={fmtUsd(stats.expenses)} icon={Receipt} />
+      </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <KpiCard label="Ruptures" value={fmtNum(stats.out)} icon={PackageX} />
+        <Button asChild variant="outline" className="h-auto justify-start p-4">
+          <Link to="/depot-restocks">
+            <div className="text-left">
+              <div className="font-medium">Approvisionnement</div>
+              <div className="text-xs text-muted-foreground">Entrée stock global</div>
+            </div>
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start p-4">
+          <Link to="/depot-expenses">
+            <div className="text-left">
+              <div className="font-medium">Dépenses</div>
+              <div className="text-xs text-muted-foreground">Charges du dépôt</div>
+            </div>
+          </Link>
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function CEODashboard() {

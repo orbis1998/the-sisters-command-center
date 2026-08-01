@@ -32,10 +32,11 @@ type ErpProduct = {
 };
 
 function InventoryPage() {
-  const { isCEO } = useRole();
+  const { isCEO, isDepot } = useRole();
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState<ErpProduct[]>([]);
   const [selectedName, setSelectedName] = useState("");
+  const canAccess = isCEO || isDepot;
 
   const loadProducts = async () => {
     const { data, error } = await supabase
@@ -51,8 +52,8 @@ function InventoryPage() {
   };
 
   useEffect(() => {
-    if (isCEO) void loadProducts();
-  }, [isCEO]);
+    if (canAccess) void loadProducts();
+  }, [canAccess]);
 
   const low = products.filter((p) => Number(p.global_qty) > 0 && Number(p.global_qty) <= Number(p.min_stock || 0)).length;
   const out = products.filter((p) => Number(p.global_qty) <= 0).length;
@@ -123,13 +124,16 @@ function InventoryPage() {
     if (minInput) minInput.value = existing ? String(existing.min_stock) : "10";
   };
 
-  if (!isCEO) {
-    return <div className="p-8 text-center">Accès réservé à l'administration.</div>;
+  if (!canAccess) {
+    return <div className="p-8 text-center">Accès réservé à l'administration et au dépôt.</div>;
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Stock global" />
+      <PageHeader
+        title="Stock global"
+        description={isDepot ? "Consultation du stock dépôt. L’entrée se fait via Approvisionnement." : undefined}
+      />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiCard label="Stock total (qté)" value={fmtNum(products.reduce((s, p) => s + Number(p.global_qty || 0), 0))} icon={Boxes} tone="gold" />
@@ -138,7 +142,7 @@ function InventoryPage() {
         <KpiCard label="Ruptures" value={fmtNum(out)} icon={PackageX} />
       </div>
 
-      <SectionCard title="Ajouter / mettre à jour un produit">
+      {isCEO && <SectionCard title="Ajouter / mettre à jour un produit">
         <form className="grid gap-3 md:grid-cols-8" onSubmit={submitProduct}>
           <div className="md:col-span-2 space-y-1">
             <Label htmlFor="name">Produit</Label>
@@ -190,7 +194,7 @@ function InventoryPage() {
             </Button>
           </div>
         </form>
-      </SectionCard>
+      </SectionCard>}
 
       <SectionCard title="Inventaire">
         <div className="overflow-x-auto">

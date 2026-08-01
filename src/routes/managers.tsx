@@ -148,6 +148,22 @@ function ManagersPage() {
           </div>
         )}
       </SectionCard>
+
+      <SectionCard
+        title="Compte dépôt"
+        description="Badge de connexion pour le personnel dépôt (approvisionnements, dépenses, rapport)."
+      >
+        <div className="flex items-center justify-between rounded-md border p-3 text-sm">
+          <div>
+            <div className="font-medium">Compte Dépôt</div>
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <BadgeIcon className="h-3 w-3" />
+              <span className="font-mono">DEPOT001</span>
+            </div>
+          </div>
+          <Badge>Actif</Badge>
+        </div>
+      </SectionCard>
     </div>
   );
 }

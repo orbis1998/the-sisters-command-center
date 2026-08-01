@@ -76,14 +76,14 @@ function Login() {
               The sister Africa Business OS
             </div>
             <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-              Accès administration & point de vente
+              Admin · point de vente · dépôt
             </div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="identifier" className="text-xs uppercase tracking-widest text-muted-foreground">
-                Email ou badge
+                Email ou badge (POS / dépôt)
               </Label>
               <div className="relative">
                 {isEmailLike(identifier) ? (
