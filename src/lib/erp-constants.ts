@@ -37,12 +37,21 @@ export const depotExpenseObjects = [
 ] as const;
 
 export function depotObjectLabel(value: string) {
-  return depotExpenseObjects.find((o) => o.value === value)?.label || value;
+  return (
+    depotExpenseObjects.find((o) => o.value === value)?.label ||
+    (value === "financial_assistance" ? "Assistance financière" : value)
+  );
 }
 
 export function expenseCategoryLabel(value: string) {
   return monthlyExpenseCategories.find((c) => c.value === value)?.label
-    || (value === "stock_purchase" ? "Achat du stock" : value === "investment" ? "Investissement" : value);
+    || (value === "stock_purchase"
+      ? "Achat du stock"
+      : value === "investment"
+        ? "Investissement"
+        : value === "financial_assistance"
+          ? "Assistance financière"
+          : value);
 }
 
 /** @deprecated use monthlyExpenseCategories */

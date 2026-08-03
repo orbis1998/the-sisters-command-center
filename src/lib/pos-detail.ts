@@ -33,6 +33,7 @@ export type PosDetailData = {
   provisionTotal: number;
   expensesTotal: number;
   transferTotal: number;
+  assistanceReceived: number;
   writeoffUnits: number;
   profit: number;
   stockLines: PosStockLine[];
@@ -64,6 +65,7 @@ export async function loadPosDetail(locationId: string): Promise<PosDetailData |
     { data: reports },
     { data: transfers },
     { data: writeoffs },
+    { data: assistRows },
     opening,
   ] = await Promise.all([
     supabase.from("locations").select("id, name").eq("id", locationId).maybeSingle(),
@@ -103,6 +105,11 @@ export async function loadPosDetail(locationId: string): Promise<PosDetailData |
       .select("quantity_change, movement_type, created_at")
       .eq("location_id", locationId)
       .in("movement_type", ["loss", "damage", "gift"]),
+    supabase
+      .from("pos_financial_assistances")
+      .select("date, amount, status")
+      .eq("to_location_id", locationId)
+      .eq("status", "completed"),
     loadOpeningForLocation(locationId, openPeriod?.id),
   ]);
 
@@ -155,8 +162,11 @@ export async function loadPosDetail(locationId: string): Promise<PosDetailData |
   const provisionTotal = scopedInv.reduce((s, r) => s + toNumber(r.total_amount), 0);
   const expensesTotal = scopedExp.reduce((s, r) => s + toNumber(r.amount), 0);
   const transferTotal = scopedTr.reduce((s, r) => s + toNumber(r.amount), 0);
+  const assistanceReceived = (assistRows || [])
+    .filter((r) => (period ? dateInPeriod(String(r.date ?? ""), period) : true))
+    .reduce((s, r) => s + toNumber(r.amount), 0);
   const writeoffUnits = scopedWriteoffs.reduce((s, r) => s + Math.abs(toNumber(r.quantity_change)), 0);
-  const profit = salesRevenue - provisionTotal - expensesTotal;
+  const profit = salesRevenue + assistanceReceived - provisionTotal - expensesTotal;
 
   return {
     locationId: location.id,
@@ -170,6 +180,7 @@ export async function loadPosDetail(locationId: string): Promise<PosDetailData |
     provisionTotal,
     expensesTotal,
     transferTotal,
+    assistanceReceived,
     writeoffUnits,
     profit,
     stockLines,

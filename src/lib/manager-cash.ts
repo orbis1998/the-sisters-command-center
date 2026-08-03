@@ -44,6 +44,7 @@ export type ManagerCashSnapshot = {
   expensesTotal: number;
   investmentTotal: number;
   transferTotal: number;
+  assistanceReceived: number;
   /** Fonds restants cette semaine. */
   cashAvailable: number;
   hasPeriodOpening: boolean;
@@ -58,7 +59,7 @@ export async function loadManagerCash(
   const openPeriod = await loadOpenAccountingPeriod();
   const period = toPeriodRange(openPeriod);
 
-  const [investmentsResult, expensesResult, reportsResult, transfersResult, opening] =
+  const [investmentsResult, expensesResult, reportsResult, transfersResult, assistResult, opening] =
     await Promise.all([
       supabase
         .from("manager_investments")
@@ -76,6 +77,13 @@ export async function loadManagerCash(
         .from("manager_cash_transfers")
         .select("date, amount")
         .eq("manager_id", managerId),
+      locationId
+        ? supabase
+            .from("pos_financial_assistances")
+            .select("date, amount, status")
+            .eq("to_location_id", locationId)
+            .eq("status", "completed")
+        : Promise.resolve({ data: [] as { date: string; amount: number; status: string }[] }),
       locationId && openPeriod?.id
         ? loadOpeningForLocation(locationId, openPeriod.id).catch(() => null)
         : Promise.resolve(null),
@@ -98,6 +106,9 @@ export async function loadManagerCash(
   const transfers = (transfersResult.data ?? []).filter((row) =>
     inScope(String(row.date ?? "")),
   );
+  const assistReceived = (assistResult.data ?? []).filter((row) =>
+    inScope(String(row.date ?? "")),
+  );
 
   const openingCa = opening?.opening_ca ?? 0;
   const openingCountsThisWeek = Boolean(
@@ -110,7 +121,10 @@ export async function loadManagerCash(
   const expensesTotal = expenses.reduce((s, r) => s + toNumber(r.amount), 0);
   const investmentTotal = investments.reduce((s, r) => s + toNumber(r.total_amount), 0);
   const transferTotal = transfers.reduce((s, r) => s + toNumber(r.amount), 0);
-  const cashAvailable = openingInCash + salesRevenue - expensesTotal - investmentTotal - transferTotal;
+  const assistanceReceived = assistReceived.reduce((s, r) => s + toNumber(r.amount), 0);
+  // Sender debit is already inside expensesTotal (category financial_assistance).
+  const cashAvailable =
+    openingInCash + salesRevenue + assistanceReceived - expensesTotal - investmentTotal - transferTotal;
 
   return {
     weekStart: week.start,
@@ -121,6 +135,7 @@ export async function loadManagerCash(
     expensesTotal,
     investmentTotal,
     transferTotal,
+    assistanceReceived,
     cashAvailable,
     hasPeriodOpening: Boolean(opening),
   };

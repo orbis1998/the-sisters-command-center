@@ -618,6 +618,12 @@ function ManagerDashboard() {
                   <span className="text-muted-foreground">Ventes</span>
                   <span className="font-medium">+{fmtUsd(data.salesRevenue)}</span>
                 </div>
+                {data.assistanceReceived > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Assistance reçue</span>
+                    <span className="font-medium">+{fmtUsd(data.assistanceReceived)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Dépenses</span>
                   <span className="font-medium">−{fmtUsd(data.expensesTotal)}</span>

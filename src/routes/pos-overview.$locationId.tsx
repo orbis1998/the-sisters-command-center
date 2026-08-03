@@ -106,6 +106,7 @@ function PosDetailPage() {
         <KpiCard label="Approvisionnements" value={fmtUsd(data.provisionTotal)} />
         <KpiCard label="Dépenses" value={fmtUsd(data.expensesTotal)} />
         <KpiCard label="Transferts" value={fmtUsd(data.transferTotal)} />
+        <KpiCard label="Assistance reçue" value={fmtUsd(data.assistanceReceived)} />
         <KpiCard label="Pertes / offerts" value={fmtNum(data.writeoffUnits)} hint="Unités" />
       </div>
 

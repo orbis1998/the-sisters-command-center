@@ -6,6 +6,7 @@ import {
   movementNotificationHref,
 } from "@/lib/accounting";
 import { loadCeoPersonalExpenses, loadDepotExpenses } from "@/lib/extended-expenses";
+import { loadRecentAssistances } from "@/lib/financial-assistance";
 
 export type ActivityItem = {
   id: string;
@@ -34,6 +35,7 @@ export async function loadCeoActivityFeed(limit = 80): Promise<ActivityItem[]> {
     { data: receipts },
     ceoPersonal,
     depotExpenses,
+    assistances,
     { data: managers },
     { data: locations },
   ] = await Promise.all([
@@ -67,6 +69,7 @@ export async function loadCeoActivityFeed(limit = 80): Promise<ActivityItem[]> {
       .limit(30),
     loadCeoPersonalExpenses(30),
     loadDepotExpenses(30),
+    loadRecentAssistances(40).catch(() => []),
     supabase.from("user_roles").select("id, name").eq("role", "manager"),
     supabase.from("locations").select("id, name"),
   ]);
@@ -118,7 +121,7 @@ export async function loadCeoActivityFeed(limit = 80): Promise<ActivityItem[]> {
 
   for (const row of expenses || []) {
     const cat = String(row.category ?? "");
-    if (!isOperatingExpense(cat)) continue;
+    if (!isOperatingExpense(cat) || cat === "financial_assistance") continue;
     const loc = row.location_id ? locationById.get(row.location_id) || "POS" : "Global";
     items.push({
       id: `exp-${row.id}`,
@@ -170,6 +173,7 @@ export async function loadCeoActivityFeed(limit = 80): Promise<ActivityItem[]> {
   }
 
   for (const row of depotExpenses) {
+    if (row.object === "financial_assistance") continue;
     items.push({
       id: `dex-${row.id}`,
       at: String(row.created_at || row.date || "").slice(0, 10),
@@ -178,6 +182,18 @@ export async function loadCeoActivityFeed(limit = 80): Promise<ActivityItem[]> {
       detail: `${row.description || "Charge dépôt"}${row.responsible ? ` · ${row.responsible}` : ""}`,
       amountLabel: `−$${toNumber(row.amount).toLocaleString("en-US")}`,
       href: "/expenses",
+    });
+  }
+
+  for (const row of assistances) {
+    items.push({
+      id: `assist-${row.id}`,
+      at: String(row.createdAt || row.date || "").slice(0, 10),
+      kind: "Assistance",
+      title: `${row.fromName} → ${row.toName}`,
+      detail: row.notes || "Assistance financière POS",
+      amountLabel: `$${toNumber(row.amount).toLocaleString("en-US")}`,
+      href: "/activity",
     });
   }
 

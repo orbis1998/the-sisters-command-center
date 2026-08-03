@@ -12,7 +12,11 @@ import {
   movementNotificationHref,
   type StockMovementRow,
 } from "@/lib/accounting";
-import { fmtNum } from "@/lib/format";
+import {
+  loadAssistanceNotifications,
+  type AssistanceNotification,
+} from "@/lib/financial-assistance";
+import { fmtNum, fmtUsd } from "@/lib/format";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
@@ -23,11 +27,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+type NotifItem =
+  | { kind: "stock"; at: string; row: StockMovementRow }
+  | { kind: "assist"; at: string; row: AssistanceNotification };
+
 export function TopBar() {
   const { role, user, manager, depotAccount, isCEO, isDepot, isManager, signOut } = useRole();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [movements, setMovements] = useState<StockMovementRow[]>([]);
+  const [items, setItems] = useState<NotifItem[]>([]);
 
   const userInitials =
     role === "ceo"
@@ -49,15 +57,38 @@ export function TopBar() {
   };
 
   const subtitle = isCEO
-    ? "Tous les mouvements"
+    ? "Mouvements & assistances"
     : isDepot
       ? "Mouvements du dépôt"
-      : "Mouvements de votre POS";
+      : "Mouvements & caisse POS";
+
+  const loadNotifications = async (): Promise<NotifItem[]> => {
+    const assistRole = isCEO ? "ceo" : isDepot ? "depot" : "manager";
+    const [movements, assist] = await Promise.all([
+      loadStockMovements(40, loadOptions()),
+      loadAssistanceNotifications({
+        role: assistRole,
+        locationId: manager?.location_id,
+      }).catch(() => [] as AssistanceNotification[]),
+    ]);
+    const stockItems: NotifItem[] = movements.map((row) => ({
+      kind: "stock",
+      at: row.date,
+      row,
+    }));
+    const assistItems: NotifItem[] = assist.map((row) => ({
+      kind: "assist",
+      at: row.createdAt,
+      row,
+    }));
+    return [...assistItems, ...stockItems]
+      .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+      .slice(0, 50);
+  };
 
   const refresh = async () => {
     if (role === "loading" || role === "unauthorized") return;
-    const rows = await loadStockMovements(40, loadOptions());
-    setMovements(rows);
+    setItems(await loadNotifications());
   };
 
   useEffect(() => {
@@ -68,9 +99,9 @@ export function TopBar() {
     if (!open) return;
     let mounted = true;
     setLoading(true);
-    void loadStockMovements(40, loadOptions())
+    void loadNotifications()
       .then((rows) => {
-        if (mounted) setMovements(rows);
+        if (mounted) setItems(rows);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -101,9 +132,9 @@ export function TopBar() {
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
               <Bell className="h-4 w-4" />
-              {movements.length > 0 && (
+              {items.length > 0 && (
                 <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
-                  {movements.length > 9 ? "9+" : movements.length}
+                  {items.length > 9 ? "9+" : items.length}
                 </span>
               )}
             </Button>
@@ -119,7 +150,7 @@ export function TopBar() {
               </div>
               {isCEO && (
                 <Button asChild variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setOpen(false)}>
-                  <Link to="/stock-flows">Voir tout</Link>
+                  <Link to="/activity">Voir tout</Link>
                 </Button>
               )}
             </div>
@@ -130,11 +161,38 @@ export function TopBar() {
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Chargement…
                 </div>
-              ) : movements.length === 0 ? (
+              ) : items.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">Aucune notification.</p>
               ) : (
                 <ul className="divide-y">
-                  {movements.map((row) => {
+                  {items.map((item) => {
+                    if (item.kind === "assist") {
+                      const row = item.row;
+                      return (
+                        <li key={row.id}>
+                          <Link
+                            to={row.href}
+                            onClick={() => setOpen(false)}
+                            className="block px-4 py-3 text-sm transition-colors hover:bg-muted/60"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate font-medium">{row.title}</div>
+                                <div className="mt-0.5 text-xs text-muted-foreground">{row.body}</div>
+                                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                  {row.createdAt.slice(0, 16).replace("T", " ")}
+                                </div>
+                              </div>
+                              <div className="shrink-0 font-mono text-sm font-semibold text-emerald-700">
+                                {fmtUsd(row.amount)}
+                              </div>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    }
+
+                    const row = item.row;
                     const href = movementNotificationHref(row.movementTypeKey, viewerRole);
                     return (
                       <li key={row.id}>

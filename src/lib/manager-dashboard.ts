@@ -26,6 +26,7 @@ export type ManagerDashboardData = {
   expensesTotal: number;
   salesRevenue: number;
   transferTotal: number;
+  assistanceReceived: number;
   openingCa: number;
   openingCountsThisWeek: boolean;
   cashAvailable: number;
@@ -186,6 +187,7 @@ export async function loadManagerDashboard(managerId: string, locationId?: strin
     expensesTotal: cash.expensesTotal,
     salesRevenue: cash.salesRevenue,
     transferTotal: cash.transferTotal,
+    assistanceReceived: cash.assistanceReceived,
     openingCa: cash.openingCa,
     openingCountsThisWeek: cash.openingCountsThisWeek,
     cashAvailable: cash.cashAvailable,
